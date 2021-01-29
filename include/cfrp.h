@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 1970-01-01 08:00:00
- * @LastEditTime: 2021-01-28 20:19:51
+ * @LastEditTime: 2021-01-29 11:45:01
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /cfrpx/include/cfrp.h
@@ -10,10 +10,11 @@
 #define __CFRP_H__
 
 #include <stdio.h>
+#include <unistd.h>
+
 #include "session.h"
 #include "logger.h"
 #include "net.h"
-#include "unistd.h"
 #include "error.h"
 #include "lib.h"
 

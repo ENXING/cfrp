@@ -1,37 +1,69 @@
 /*
  * @Author: your name
  * @Date: 1970-01-01 08:00:00
- * @LastEditTime: 2021-01-28 22:07:42
+ * @LastEditTime: 2021-01-29 11:41:01
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /cfrpx/src/logger.c
  */
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
+#include <unistd.h>
 #include "logger.h"
 
-void log_log(log_level level, const char *tag, const char *message, ...)
+FILE *__out__ = NULL;
+
+FILE **__log_out()
 {
-    printf("====\n");
+    if (__out__ == NULL)
+    {
+        __out__ = stdout;
+    }
+    return &__out__;
 }
 
+logger_level __level__ = INFO;
 
-void log_debug(const char *tag, const char *message, ...)
+logger_level *__log_level(void)
 {
-    log_log(DEBUG, tag, message);
+    return &__level__;
 }
 
-void log_info(const char *tag, const char *message, ...)
+char *__level_name(logger_level level)
 {
-    log_log(INFO, tag, message);
+
+    switch (level)
+    {
+    case DEBUG:
+        return "DEBUG";
+    case INFO:
+        return "INFO";
+    case WARNING:
+        return "WARNING";
+    case ERROR:
+        return "ERROR";
+    }
+    return "NULL";
 }
 
-void log_warning(const char *tag, const char *mesage, ...)
+void __log(logger_level level, const char *file, const char *func, const int line, const char *tag, const char *message, ...)
 {
-    log_log(WARNING, tag, mesage);
-}
-
-void log_error(const char *tag, const char *message, ...)
-{
-    log_log(ERROR, tag, message);
+    if (!log_available(level))
+        return;
+    char buff[80];
+    time_t c_time;
+    time(&c_time);
+    strftime(buff, 80, FORMAT_DATE, localtime(&c_time));
+    FILE *out = log_out();
+    va_list args;
+    pid_t pid = getpid();
+    va_start(args, message);
+    char *level_name = __level_name(level);
+    tag &&fprintf(out, "%s: ", tag);
+    fprintf(out, "%s %s %d ---[%s] %s", buff, level_name, pid, func, file);
+    (tag && fputs(">: ", out)) || fputs(": ", out);
+    vfprintf(out, message, args);
+    fputc('\n', out);
+    va_end(args);
 }
