@@ -1,17 +1,15 @@
-/*
- * @Author: your name
- * @Date: 1970-01-01 08:00:00
- * @LastEditTime: 2021-01-29 11:18:30
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: /cfrpx/server.c
- */
+#include <stdlib.h>
+
 #include "cfrp.h"
 
 int main(int argc, char **argv)
 {
-   
-    log_info("info", "hellorold");
-    
+    cfrps *frps = make_cfrps();
+    if (!frps)
+    {
+        log_error("make cfrp error");
+        exit(0);
+    }
+    cfrp_start(frps);
     return 0;
 }

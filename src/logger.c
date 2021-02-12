@@ -1,15 +1,8 @@
-/*
- * @Author: your name
- * @Date: 1970-01-01 08:00:00
- * @LastEditTime: 2021-01-29 11:41:01
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: /cfrpx/src/logger.c
- */
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+
 #include "logger.h"
 
 FILE *__out__ = NULL;
@@ -23,7 +16,13 @@ FILE **__log_out()
     return &__out__;
 }
 
-logger_level __level__ = INFO;
+#ifdef DEBUG
+logger_level __level__ = LOGGER_DEBUG;
+#elif NO_LOG
+logger_level __level__ = LOGGER_OFF;
+#else
+logger_level __level__ = LOGGER_INFO;
+#endif
 
 logger_level *__log_level(void)
 {
@@ -35,13 +34,13 @@ char *__level_name(logger_level level)
 
     switch (level)
     {
-    case DEBUG:
+    case LOGGER_DEBUG:
         return "DEBUG";
-    case INFO:
+    case LOGGER_INFO:
         return "INFO";
-    case WARNING:
+    case LOGGER_WARNING:
         return "WARNING";
-    case ERROR:
+    case LOGGER_ERROR:
         return "ERROR";
     }
     return "NULL";

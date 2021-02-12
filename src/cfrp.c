@@ -1,34 +1,46 @@
-/*
- * @Author: your name
- * @Date: 1970-01-01 08:00:00
- * @LastEditTime: 2021-01-29 13:23:21
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: /cfrpx/src/cfrp.c
- */
+#include <stdlib.h>
+#include <sys/epoll.h>
 #include "cfrp.h"
+#include "list.h"
 
-extern struct cfrp *make_cfrpc(const uint client_port)
+extern cfrps *make_cfrps()
 {
-    log_debug("%s");
 }
 
-extern struct cfrp *make_cfrps(const uint bind_port)
+extern cfrpc *make_cfrpc()
 {
-    
 }
 
-extern struct session *get_session(struct cfrp *frp)
+/**
+ * 启动
+*/
+int cfrp_start(struct __cfrp *frp)
 {
-   
+}
+/**
+ * 重新加载
+*/
+int cfrp_reload(struct __cfrp *frp)
+{
+}
+/**
+ * 杀死一条任务
+*/
+int cfrp_kill(struct __cfrp *frp, int cid)
+{
+}
+/**
+ * 停止
+*/
+int cfrp_stop(struct __cfrp *frp)
+{
 }
 
-extern int start_cfrp(struct cfrp *frp)
+/**
+ * 数据转发
+*/
+extern int cfrp_forward(struct sock *dest, struct sock *src)
 {
-    
-}
 
-extern int stop_cfrp(struct cfrp *frp)
-{
-    
+    sock_recv(src, NULL, 0);
 }

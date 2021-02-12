@@ -4,7 +4,7 @@ BUILD_PATH = build/bin
 OBJECT_PATH = build/obj
 TEST_PATH = build/test
 
-CXX := gcc -I ${INCLUDE_PATH}
+CXX := gcc -I ${INCLUDE_PATH} $(addprefix -D, $(LOG_LEVEL))
 ALL_SOURCE := $(wildcard $(SOURCE_PATH)/**)
 ALL_OBJECT := $(addprefix $(OBJECT_PATH)/, $(notdir $(addsuffix .obj, $(basename $(ALL_SOURCE)))))
 
@@ -21,6 +21,8 @@ client.run: $(ALL_OBJECT) client.c
 
 build: make_path server.run client.run
 	@echo Build to $(BUILD_PATH) success!
+
+rebuild: clean build
 
 %.test: %.c make_path $(ALL_OBJECT)
 	$(CXX) $(ALL_OBJECT) $< -o $(TEST_PATH)/$(notdir $@)
