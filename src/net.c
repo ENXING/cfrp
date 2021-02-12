@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/fcntl.h>
 #include <errno.h>
+
 #include "types.h"
 #include "logger.h"
 #include "net.h"
@@ -103,41 +105,20 @@ struct sock *sock_accept(struct sock *sk)
 
 int sock_send(struct sock *sk, char *bytes, uint size)
 {
+    
 }
 
 int sock_recv(struct sock *sk, char *buff, uint buff_size)
 {
+
 }
 
 int sock_flush(struct sock *sk)
 {
-}
-
-int sock_close(struct sock *sk)
-{
-}
-
-struct listener make_listener(struct sock *sk)
-{
     
 }
 
-extern int handler_listener(struct listener *lr, uint max_event, __handler handler)
+
+int sock_close(struct sock *sk)
 {
-    log_debug("handler events");
-    struct epoll_event ev[max_event];
-    int num = -1;
-    LOOP
-    {
-        if ((num = epoll_wait(lr->efd, ev, max_event, 10)) == -1)
-        {
-            log_debug("handler error");
-            break;
-        }
-        else
-        {
-            log_info("handler...");
-            // handler(lr, num, ev);
-        }
-    }
 }

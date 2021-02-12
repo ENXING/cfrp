@@ -1,9 +1,9 @@
 #ifndef __NET_H__
 #define __NET_H__
 #include <sys/socket.h>
-#include <sys/fcntl.h>
 #include <arpa/inet.h>
-#include <sys/epoll.h>
+
+#include "buffer.h"
 
 #define SOCK_LISTEN_NUM 10
 
@@ -14,20 +14,17 @@
 
 struct sock
 {
+    // 文件描述符
     int fd;
+    // 类型
     int type;
+    // 端口号
     int port;
+    // 主机地址
     char *host;
+    // 缓存
+    struct buffer *cache;
 };
-
-struct listener
-{
-    int efd;
-    int listen_num;
-    struct sock *sk;
-};
-
-typedef void (*__handler)(struct listener* lr, int size, struct epoll_event *ev);
 
 extern struct sock *make_tcp(uint port, char *bind_addr);
 
@@ -36,10 +33,6 @@ extern struct sock *make_udp(uint port, char *bind_addr);
 extern struct sock *make_tcp_connect(uint port, char *host);
 
 extern struct sock *make_udp_connect(uint port, char *host);
-
-extern struct listener make_listener(struct sock *sk);
-
-extern int handler_listener(struct listener *lr, uint max_event, __handler handler);
 
 extern int set_noblocking(int fd);
 

@@ -10,98 +10,128 @@
 #include "types.h"
 #include "list.h"
 
-#define CFRP_SERVER 0x01
-#define CFRP_CLIENT 0x02
+// 会话唯一标识长度
+#define SID_LEN 18
+// 正常传输
+#define CFRP_PACKET_NORMAL 0x01
+// 分包传输
+#define CFRP_PACKET_SUB 0x02
+// 协议头大小
+#define CFRP_HEAD_SIZE sizeof(struct cfrp_protocol)
 
-#define SESSION_LEN 18
-
-#define CFRP_PROCESS_NUM 4
-#define CFRP_CONNECT_NUM 100
-#define CFRP_MAX_PRCOESS 20
-
-/** payload mask */
-typedef enum
+/**
+ * cfrp传输协议
+ * 服务端与客户端必须要按照这个协议通讯
+*/
+struct cfrp_protocol
 {
-    CFRP_MASK_TYPE,
-    CFRP_MASK_KEY_TYPE,
-    CFRP_MASK_KEY_LEN,
-    CFRP_MASK_DATA_LEN
-} cfrp_mask;
-/** end */
-
-struct session
-{
-    char *sid;
-    void *ptr;
-};
-
-struct session_map
-{
-    int map_size;
-};
-
-struct mapping
-{
-    struct sock *sk;
-};
-
-struct mapping_map
-{
-    int mid;
-};
-
-struct worker
-{
-    int pid;
-    int (*notify)(struct __cfrp frp, struct sock *sk);
-    struct session_map sp;
-};
-
-struct worker_pool
-{
-    int lock;
-    uint woker_num;
-};
-
-struct task_queue
-{
-    int lock;
-    void *ptr;
-    int (*func)(struct worker);
-};
-
-struct __cfrp
-{
-    // 进程号
-    int pid;
-    // 服务端信息
-    struct sock sk;
-    // 映射信息
-    struct mapping_map mp;
-    // 工作池
-    struct worker_pool wp;
-    // task
-    struct task_queue tq;
-};
-
-typedef struct __cfrp cfrps;
-typedef struct __cfrp cfrpc;
-
-struct cfrp_payload
-{
+    // 本次会话类型
+    // 0x01: 正常传输
+    // 0x02: 断开连接
+    // 0x03: 会话终止
+    char type;
+    // 本次会话id
+    char sid[SID_LEN];
+    // 转发到的端口
+    uint mapping_port;
+    // 校验类型
+    char verify_type;
+    // 校验长度
+    uint8_t verify_len;
+    // 数据包信息, 实际大小信息
     struct
     {
-        // 会话类型
-        uint8_t type;
-        char token[SESSION_LEN];
-        uint mapping_port;
-        char verify_type;
-        uint8_t verify_len;
-        char verify;
-        short data_len;
-    } head;
+        // 数据包类型
+        // 0x01: 正常传输, 0x01: 分包传输
+        char type;
+        // 总大小
+        size_t total;
+        // 实际大小
+        size_t full;
+    } packet_info;
+};
+
+/**
+ * cfrp payload
+*/
+struct cfrp_payload
+{
+    // 协议头
+    struct cfrp_protocol head;
+    // 传输的数据
     char *data;
 };
+
+struct cfrp_list_head
+{
+    struct cfrp_list_head *next;
+    struct cfrp_list_head *prev;
+};
+
+/**
+ * 映射信息
+*/
+struct cfrp_mapping
+{
+    char *addr;
+    uint port;
+};
+
+/**
+ * 会话信息
+*/
+struct cfrp_session
+{
+    char sid[SID_LEN];
+    struct sock *sk;
+    struct cfrp_list_head *head;
+};
+
+struct cfrp_worker
+{
+    int pid;
+    void *ctx;
+    struct cfrp_session *session;
+};
+
+struct cfrp_job
+{
+    int lock;
+    void *wating_worker;
+    struct cfrp_worker *workers;
+    int (*nofity)(struct cfrp_worker *woker);
+};
+
+struct cfrp
+{
+    // 主要监听服务
+    struct sock *msock;
+    // 映射信息
+    struct cfrp_mapping *mappings;
+    // 会话信息
+    struct cfrp_session *sessions;
+    // 工作
+    struct cfrp_job *job;
+};
+
+struct cfrp_operating
+{
+    int (*start)(struct cfrp *);
+    int (*stop)(struct cfrp *);
+    int (*reload)(struct cfrp *);
+    int (*restart)(struct cfrp *);
+    int (*kill)(struct cfrp *, char *sid);
+};
+
+struct cfrp_context
+{
+    int pid;
+    struct cfrp *frp;
+    struct cfrp_operating *op;
+};
+
+typedef struct cfrp_context cfrps;
+typedef struct cfrp_context cfrpc;
 
 extern cfrps *make_cfrps();
 
@@ -110,23 +140,23 @@ extern cfrpc *make_cfrpc();
 /**
  * 启动
 */
-extern int cfrp_start(struct __cfrp *frp);
+extern int cfrp_start(struct cfrp_context *ctx);
+
+/**
+ * 重新启动
+*/
+extern int cfrp_restart(struct cfrp_context *ctx);
 /**
  * 重新加载
 */
-extern int cfrp_reload(struct __cfrp *frp);
+extern int cfrp_reload(struct cfrp_context *ctx);
 /**
- * 杀死
+ * 杀死一个会话
 */
-extern int cfrp_kill(struct __cfrp *frp, int cid);
+extern int cfrp_kill(struct cfrp_context *ctx, char *sid);
 /**
  * 停止
 */
-extern int cfrp_stop(struct __cfrp *frp);
-
-/**
- * 转发
-*/
-extern int cfrp_forward(struct sock *dest, struct sock *src);
+extern int cfrp_stop(struct cfrp_context *ctx);
 
 #endif
