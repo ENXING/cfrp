@@ -101,9 +101,9 @@ int buff_aany(struct buff *buf, void *any, size_t size)
 int buff_sub(struct buff *buf, void *dest, size_t begin, size_t end)
 {
     CHECK_NULL(buf);
-    if (!dest || (end && begin >= end) || buf->use_size < end)
+    if (!dest || (end && begin >= end) || buf->use_size < end || buf->use_size < begin)
         return C_ERROR;
-    return memcpy(dest, BUFF_OFFSET(buf, begin), end ? end : buf->use_size) ? C_SUCCESS : C_ERROR;
+    return memcpy(dest, BUFF_OFFSET(buf, begin), end ? end - begin : buf->use_size) ? C_SUCCESS : C_ERROR;
 }
 
 int buff_ichr(struct buff *buf, size_t index, char chr)
