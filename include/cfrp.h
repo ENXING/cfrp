@@ -63,7 +63,7 @@ struct worker_pool
     uint woker_num;
 };
 
-struct task_queueint
+struct task_queue
 {
     int lock;
     void *ptr;

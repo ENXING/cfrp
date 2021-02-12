@@ -83,7 +83,7 @@ int set_noblocking(int fd)
         log_error("set no blocking failure!");
         return C_ERROR;
     }
-    return C_NORMAL;
+    return C_SUCCESS;
 }
 
 struct sock *sock_accept(struct sock *sk)

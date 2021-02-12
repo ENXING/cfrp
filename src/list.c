@@ -12,7 +12,7 @@ __list *make_list()
 
 int list_push(__list *list, void *elem)
 {
-      
+    
 }
 
 int list_remove_index(__list *list, int index)

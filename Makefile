@@ -8,7 +8,7 @@ CXX := gcc -I ${INCLUDE_PATH} $(addprefix -D, $(LOG_LEVEL))
 ALL_SOURCE := $(wildcard $(SOURCE_PATH)/**)
 ALL_OBJECT := $(addprefix $(OBJECT_PATH)/, $(notdir $(addsuffix .obj, $(basename $(ALL_SOURCE)))))
 
-all: build
+all: rebuild
 
 $(ALL_OBJECT):$(OBJECT_PATH)/%.obj:$(SOURCE_PATH)/$(notdir %.c)
 	$(CXX) -c $^ -o $@

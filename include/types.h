@@ -3,8 +3,8 @@
 
 #define SYS_ERROR strerror(errno)
 
-#define C_ERROR -1
-#define C_NORMAL 1
+#define C_ERROR 0
+#define C_SUCCESS 1
 
 #define C_SCOPE_HEAP 0x01
 #define C_SCOPE_STACK 0x00

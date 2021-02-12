@@ -10,6 +10,7 @@ int main(int argc, char **argv)
         log_error("make cfrp error");
         exit(0);
     }
+    
     cfrp_start(frps);
     return 0;
 }
