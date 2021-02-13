@@ -23,9 +23,8 @@
 
 #define BUFFER_OFFSET(buf, offset) (buf->bytes + offset)
 
-extern int __bmalloc(struct buffer *buf, int size);
 
-int __bmalloc(struct buffer *buf, int size)
+static int __bmalloc(struct buffer *buf, int size)
 {
     void *tmp;
     size_t total_size = 0;
@@ -92,7 +91,7 @@ int buffer_aany(struct buffer *buf, void *any, size_t size)
 {
     CHECK_NULL(buf);
     CHECK_SPACE(buf, size);
-    if (!memcpy(BUFFER_OFFSET(buf, buf->use_size), any, size) ? C_SUCCESS : C_ERROR)
+    if (!memcpy(BUFFER_OFFSET(buf, buf->use_size), any, size))
         return C_ERROR;
     buf->use_size += size;
     return C_SUCCESS;

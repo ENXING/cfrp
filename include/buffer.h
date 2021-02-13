@@ -1,3 +1,6 @@
+#ifndef __BUFFER_H__
+#define __BUFFER_H__
+
 #include "types.h"
 
 #define buffer_SCOPE_HEAP 0x02
@@ -54,3 +57,5 @@ extern int buffer_zero(struct buffer *buf);
 extern int buffer_free(struct buffer *buf);
 
 extern int buffer_resize(struct buffer *buf);
+
+#endif
