@@ -1,14 +1,7 @@
 #ifndef __CFRP_H__
 #define __CFRP_H__
-
-#include <stdio.h>
-#include <unistd.h>
-
-#include "logger.h"
-#include "net.h"
-#include "error.h"
 #include "types.h"
-#include "list.h"
+#include "net.h"
 
 // 会话唯一标识长度
 #define SID_LEN 18
@@ -37,7 +30,7 @@ struct cfrp_protocol
     // 校验类型
     char verify_type;
     // 校验长度
-    uint8_t verify_len;
+    uint8 verify_len;
     // 数据包信息, 实际大小信息
     struct
     {
@@ -75,6 +68,7 @@ struct cfrp_mapping
 {
     char *addr;
     uint port;
+    struct cfrp_list_head *head;
 };
 
 /**
@@ -84,6 +78,7 @@ struct cfrp_session
 {
     char sid[SID_LEN];
     struct sock *sk;
+    void *ptr;
     struct cfrp_list_head *head;
 };
 
@@ -105,7 +100,7 @@ struct cfrp_job
 struct cfrp
 {
     // 主要监听服务
-    struct sock *msock;
+    struct sock *msk;
     // 映射信息
     struct cfrp_mapping *mappings;
     // 会话信息
@@ -133,9 +128,9 @@ struct cfrp_context
 typedef struct cfrp_context cfrps;
 typedef struct cfrp_context cfrpc;
 
-extern cfrps *make_cfrps();
+extern cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings);
 
-extern cfrpc *make_cfrpc();
+extern cfrpc *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings);
 
 /**
  * 启动
@@ -158,5 +153,23 @@ extern int cfrp_kill(struct cfrp_context *ctx, char *sid);
  * 停止
 */
 extern int cfrp_stop(struct cfrp_context *ctx);
+
+extern int cfrp_verify(struct cfrp *frp, char *sid);
+
+extern int cfrp_proto(struct cfrp *frp, struct cfrp_protocol *dest, char *sid);
+
+extern int cfrp_recv(struct cfrp *frp, char *sid, void *buff, size_t size);
+
+extern int cfrp_send(struct cfrp *frp, char *sid, void *data, size_t size);
+
+extern int cfrp_tranform(struct cfrp *frp, char *dest_sid, char *src_sid, size_t size);
+
+extern struct cfrp_session *cfrp_sadd(struct cfrp *frp, struct cfrp_session *session);
+
+extern struct cfrp_session *cfrp_sget(struct cfrp *frp, char *sid);
+/**
+ * 生成一个唯一会话Id
+*/
+extern char *cfrp_gensid();
 
 #endif

@@ -1,17 +1,7 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include "cfrp.h"
-#include "list.h"
 
-
-extern cfrps *make_cfrps()
-{
-
-}
-
-extern cfrpc *make_cfrpc()
-{
-}
 
 /**
  * 启动

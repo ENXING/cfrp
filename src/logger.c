@@ -5,7 +5,7 @@
 
 #include "logger.h"
 
-FILE *__out__ = NULL;
+static FILE *__out__ = NULL;
 
 FILE **__log_out()
 {
@@ -16,12 +16,13 @@ FILE **__log_out()
     return &__out__;
 }
 
+static logger_level __level__ =
 #ifdef DEBUG
-logger_level __level__ = LOGGER_DEBUG;
+    LOGGER_DEBUG;
 #elif NO_LOG
-logger_level __level__ = LOGGER_OFF;
+    LOGGER_OFF;
 #else
-logger_level __level__ = LOGGER_INFO;
+    LOGGER_INFO;
 #endif
 
 logger_level *__log_level(void)
@@ -29,7 +30,7 @@ logger_level *__log_level(void)
     return &__level__;
 }
 
-char *__level_name(logger_level level)
+static char *__level_name(logger_level level)
 {
 
     switch (level)

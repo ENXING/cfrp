@@ -12,6 +12,14 @@
     .sin_port = htons(port),       \
     .sin_addr = {.s_addr = inet_addr(host)}};
 
+struct stream_operating
+{
+    int (*recv)(void *sk, void *buffer, size_t size);
+    int (*send)(void *sk, void *data, size_t size);
+    int (*flush)(void *sk);
+    int (*close)(void *sk);
+};
+
 struct sock
 {
     // 文件描述符
@@ -22,8 +30,13 @@ struct sock
     int port;
     // 主机地址
     char *host;
-    // 缓存
-    struct buffer *cache;
+    // 是否锁定操作
+    char op_lock;
+    // 流操作指针
+    void *stream_ptr;
+    struct stream_operating *op;
+    char recv_stat;
+    char send_stat;
 };
 
 extern struct sock *make_tcp(uint port, char *bind_addr);
@@ -38,9 +51,9 @@ extern int set_noblocking(int fd);
 
 extern struct sock *sock_accept(struct sock *sk);
 
-extern int sock_send(struct sock *sk, char *bytes, uint size);
+extern int sock_send(struct sock *sk, void *bytes, size_t size);
 
-extern int sock_recv(struct sock *sk, char *buff, uint buff_size);
+extern int sock_recv(struct sock *sk, void *buff, size_t buff_size);
 
 extern int sock_flush(struct sock *sk);
 

@@ -9,18 +9,19 @@
 #include "logger.h"
 #include "net.h"
 #include "lib.h"
+#include "stream.h"
 
 typedef struct sock __sock;
 
-extern struct sock *__get_sock();
-
-struct sock *__get_sock(int fd, uint port, char *host)
+static struct sock *__get_sock(int fd, uint port, char *host)
 {
     __sock *sk = malloc(sizeof(__sock));
     sk->fd = fd;
     sk->port = port;
     sk->host = host;
     sk->type = AF_INET;
+    sk->op = stream_base();
+    sk->op->recv(NULL, NULL, 0);
     return sk;
 }
 
@@ -45,6 +46,7 @@ struct sock *make_tcp(uint port, char *bind_addr)
         return NULL;
     }
     struct sock *sk = __get_sock(fd, port, bind_addr);
+   
     log_debug("make tcp success! %s:%d#%d", bind_addr, port, fd);
     return sk;
 }
@@ -103,22 +105,22 @@ struct sock *sock_accept(struct sock *sk)
     return connect_sk;
 }
 
-int sock_send(struct sock *sk, char *bytes, uint size)
+int sock_send(struct sock *sk, void *bytes, size_t size)
 {
-    
+    return sk->op->send(sk, bytes, size);
 }
 
-int sock_recv(struct sock *sk, char *buff, uint buff_size)
+int sock_recv(struct sock *sk, void *buff, size_t buff_size)
 {
-
+    return sk->op->recv(sk, buff, buff_size);
 }
 
 int sock_flush(struct sock *sk)
 {
-    
+    return sk->op->flush(sk);
 }
-
 
 int sock_close(struct sock *sk)
 {
+    return sk->op->close(sk);
 }
