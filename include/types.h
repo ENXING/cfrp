@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
 
 #define SYS_ERROR strerror(errno)
 

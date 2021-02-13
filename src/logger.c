@@ -3,6 +3,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "types.h"
 #include "logger.h"
 
 static FILE *__out__ = NULL;

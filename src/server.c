@@ -6,31 +6,22 @@
 #include "net.h"
 #include "lib.h"
 #include "logger.h"
+#include "job.h"
 
 static int cfrp_server_start(struct cfrp *frp)
 {
-    int cpu_num = cfrp_cpu;
-    pid_t mpid = getpid();
-    pid_t pid;
-    log_info("init");
-    for (int i = 0; i < cpu_num; i++)
-    {
-        if (getpid() != mpid)
-            break;
-        pid = fork();
-        if (pid < 0)
-        {
-            perror("fork error");
-        }
-        else if (pid > 0)
-        {
-            log_info("pid: %d, ppid: %d, mpid: %d", pid, getppid(), mpid);
-        }
-    }
+
+   
+    job_start(frp->job, cfrp_cpu);
 }
 
 static int cfrp_server_kill(struct cfrp *frp, char *sid)
 {
+    struct cfrp_session *sn = cfrp_sdel(frp, sid);
+    if (!sn)
+        return C_ERROR;
+    worker_t *wk = (worker_t *)sn->worker;
+    return C_SUCCESS;
 }
 
 static int cfrp_server_stop(struct cfrp *frp)
@@ -67,13 +58,29 @@ cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings)
     }
     if (!(frp->job = malloc(sizeof(struct cfrp_job))))
     {
+        sock_close(frp->msk);
+        free(frps);
         log_error("cfrp job malloc failure!");
         return NULL;
     }
+    if (!(frp->sessions->head = malloc(sizeof(struct list_head))))
+    {
+        sock_close(frp->msk);
+        free(frp->job);
+        free(frps);
+        log_error("cfrp session malloc failure!");
+        return NULL;
+    }
+    INIT_LIST_HEAD(frp->sessions->head);
     mappings &&memcpy(frp->mappings, mappings, sizeof(struct cfrp_mapping *));
     if (!(frps->op = malloc(sizeof(struct cfrp_operating))))
     {
+        sock_close(frp->msk);
+        free(frp->job);
+        free(frp->sessions->head);
+        free(frps);
         log_error("cfrp operating error");
+        return NULL;
     }
     frps->pid = getpid();
     frps->frp = frp;

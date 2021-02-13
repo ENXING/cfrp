@@ -17,6 +17,7 @@ static int *sock_bsend(struct sock *sk, void *data, size_t size)
 
 static int *sock_bflush(struct sock *sk)
 {
+    
 }
 
 static int *sock_bclose(struct sock *sk)
@@ -41,6 +42,7 @@ struct stream_operating *stream_base()
 */
 struct stream_operating *stream_buffer(struct buffer *buf)
 {
+    
 }
 
 /**
@@ -48,4 +50,5 @@ struct stream_operating *stream_buffer(struct buffer *buf)
 */
 struct stream_operating *stream_subpackage(size_t total, size_t package)
 {
+
 }

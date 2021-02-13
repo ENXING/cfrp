@@ -2,7 +2,6 @@
 #include <sys/epoll.h>
 #include "cfrp.h"
 
-
 /**
  * 启动
 */
@@ -25,6 +24,7 @@ int cfrp_kill(struct cfrp_context *ctx, char *sid)
 {
     return ctx->op->kill(ctx->frp, sid);
 }
+
 /**
  * 停止
 */

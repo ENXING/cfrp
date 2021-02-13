@@ -2,6 +2,7 @@
 #define __CFRP_H__
 #include "types.h"
 #include "net.h"
+#include "list.h"
 
 // 会话唯一标识长度
 #define SID_LEN 18
@@ -55,12 +56,6 @@ struct cfrp_payload
     char *data;
 };
 
-struct cfrp_list_head
-{
-    struct cfrp_list_head *next;
-    struct cfrp_list_head *prev;
-};
-
 /**
  * 映射信息
 */
@@ -68,7 +63,8 @@ struct cfrp_mapping
 {
     char *addr;
     uint port;
-    struct cfrp_list_head *head;
+    struct list_head *head;
+    struct list_head list;
 };
 
 /**
@@ -79,21 +75,33 @@ struct cfrp_session
     char sid[SID_LEN];
     struct sock *sk;
     void *ptr;
-    struct cfrp_list_head *head;
+    // 会话所在worker
+    void *wk;
+    struct list_head *head;
+    struct list_head list;
+};
+
+struct worker_operating
+{
+    void (*start)(void *);
+    int (*kill)(void *, struct cfrp_session *);
 };
 
 struct cfrp_worker
 {
     int pid;
     void *ctx;
-    struct cfrp_session *session;
+    struct worker_operating *op;
+    struct cfrp_session *sessions;
+    struct list_head *head;
+    struct list_head list;
 };
 
 struct cfrp_job
 {
     int lock;
-    void *wating_worker;
-    struct cfrp_worker *workers;
+    void *ready_wk;
+    struct cfrp_worker *wks;
     int (*nofity)(struct cfrp_worker *woker);
 };
 
@@ -105,6 +113,8 @@ struct cfrp
     struct cfrp_mapping *mappings;
     // 会话信息
     struct cfrp_session *sessions;
+    // 主要工作进程
+    struct cfrp_worker *mwk;
     // 工作
     struct cfrp_job *job;
 };
@@ -164,12 +174,17 @@ extern int cfrp_send(struct cfrp *frp, char *sid, void *data, size_t size);
 
 extern int cfrp_tranform(struct cfrp *frp, char *dest_sid, char *src_sid, size_t size);
 
-extern struct cfrp_session *cfrp_sadd(struct cfrp *frp, struct cfrp_session *session);
+extern int cfrp_sadd(struct cfrp *frp, struct cfrp_session *session);
 
 extern struct cfrp_session *cfrp_sget(struct cfrp *frp, char *sid);
+
+extern struct cfrp_session *cfrp_sdel(struct cfrp *frp, char *sid);
+
 /**
  * 生成一个唯一会话Id
 */
 extern char *cfrp_gensid();
+
+typedef struct cfrp_worker worker_t;
 
 #endif
