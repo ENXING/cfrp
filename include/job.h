@@ -4,30 +4,8 @@
 #include <stdlib.h>
 #include "cfrp.h"
 
-static struct cfrp_worker *make_worker(pid_t pid)
-{
-    struct cfrp_worker *wk;
-}
+typedef void (*woker_handler)(worker_t *wk);
 
-
-static int job_start(struct cfrp_job *job, uint num)
-{
-    pid_t mpid = getpid();
-    pid_t pid;
-    struct list_head *head = (struct list_head *)malloc(sizeof(struct list_head));
-    for (int i = 0; i < num; i++)
-    {
-        if (getpid() != mpid)
-            break;
-        pid = fork();
-        if (pid > 0)
-        {
-            // make_worker(pid, );
-        }
-        else if (pid < 0)
-        {
-        }
-    }
-}
+extern void cfrp_start_worker_process(struct cfrp *frp, woker_handler run_process);
 
 #endif

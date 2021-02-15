@@ -12,6 +12,8 @@
 #define CFRP_PACKET_SUB 0x02
 // 协议头大小
 #define CFRP_HEAD_SIZE sizeof(struct cfrp_protocol)
+// 共享内存大小
+#define SHM_SIZE 1024
 
 /**
  * cfrp传输协议
@@ -91,6 +93,7 @@ struct cfrp_worker
 {
     int pid;
     void *ctx;
+    uint counter;
     struct worker_operating *op;
     struct cfrp_session *sessions;
     struct list_head *head;
@@ -99,10 +102,29 @@ struct cfrp_worker
 
 struct cfrp_job
 {
-    int lock;
-    void *ready_wk;
+    // 互斥锁
+    struct cfrp_lock *lock;
     struct cfrp_worker *wks;
-    int (*nofity)(struct cfrp_worker *woker);
+};
+
+struct sock_event
+{
+    struct sock *sk;
+    struct list_head *head;
+    struct list_head list;
+};
+
+struct cfrp_lock
+{
+    // 互斥锁
+    int mutex;
+    // 获得锁的对象
+    void *aptr;
+};
+
+struct cfrp_epoll
+{
+    int efd;
 };
 
 struct cfrp
@@ -110,13 +132,15 @@ struct cfrp
     // 主要监听服务
     struct sock *msk;
     // 映射信息
-    struct cfrp_mapping *mappings;
+    struct cfrp_mapping mappings;
     // 会话信息
-    struct cfrp_session *sessions;
-    // 主要工作进程
-    struct cfrp_worker *mwk;
+    struct cfrp_session sessions;
     // 工作
-    struct cfrp_job *job;
+    struct cfrp_job job;
+    // 多路复用
+    struct cfrp_epoll epoll;
+    // 共享内存
+    void *shm;
 };
 
 struct cfrp_operating
@@ -186,5 +210,9 @@ extern struct cfrp_session *cfrp_sdel(struct cfrp *frp, char *sid);
 extern char *cfrp_gensid();
 
 typedef struct cfrp_worker worker_t;
-
+typedef struct cfrp cfrp_t;
+typedef struct cfrp_mapping mapping_t;
+typedef struct cfrp_session session_t;
+typedef struct sock sock_t;
+typedef struct cfrp_job job_t;
 #endif

@@ -21,7 +21,6 @@ static struct sock *__get_sock(int fd, uint port, char *host)
     sk->host = host;
     sk->type = AF_INET;
     sk->op = stream_base();
-    sk->op->recv(NULL, NULL, 0);
     return sk;
 }
 
@@ -46,7 +45,6 @@ struct sock *make_tcp(uint port, char *bind_addr)
         return NULL;
     }
     struct sock *sk = __get_sock(fd, port, bind_addr);
-   
     log_debug("make tcp success! %s:%d#%d", bind_addr, port, fd);
     return sk;
 }

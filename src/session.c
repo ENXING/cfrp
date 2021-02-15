@@ -12,7 +12,7 @@ static char chrs[] = {
 
 int cfrp_sadd(struct cfrp *frp, struct cfrp_session *session)
 {
-    session->head = frp->sessions->head;
+    session->head = frp->sessions.head;
     list_add(&session->list, session->head);
 }
 
@@ -20,7 +20,7 @@ struct cfrp_session *cfrp_sget(struct cfrp *frp, char *sid)
 {
     struct list_head *entry;
     struct cfrp_session *sn;
-    list_foreach(entry, frp->sessions->head)
+    list_foreach(entry, frp->sessions.head)
     {
         sn = list_entry(entry, struct cfrp_session, list);
         if (strcmp(sn->sid, sid) == 0)
