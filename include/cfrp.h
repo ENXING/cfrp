@@ -65,7 +65,6 @@ struct cfrp_mapping
 {
     char *addr;
     uint port;
-    struct list_head *head;
     struct list_head list;
 };
 
@@ -75,11 +74,13 @@ struct cfrp_mapping
 struct cfrp_session
 {
     char sid[SID_LEN];
-    struct sock *sk;
+    // 目标
+    struct sock *sk_desc;
+    // 源
+    struct sock *sk_src;
     void *ptr;
     // 会话所在worker
     void *wk;
-    struct list_head *head;
     struct list_head list;
 };
 
@@ -95,8 +96,7 @@ struct cfrp_worker
     void *ctx;
     uint counter;
     struct worker_operating *op;
-    struct cfrp_session *sessions;
-    struct list_head *head;
+    struct cfrp_session sessions;
     struct list_head list;
 };
 
@@ -104,13 +104,13 @@ struct cfrp_job
 {
     // 互斥锁
     struct cfrp_lock *lock;
-    struct cfrp_worker *wks;
+    struct cfrp_worker wokers;
 };
 
 struct sock_event
 {
     struct sock *sk;
-    struct list_head *head;
+    int events;
     struct list_head list;
 };
 
@@ -127,18 +127,30 @@ struct cfrp_epoll
     int efd;
 };
 
+struct cfrp_server
+{
+    // 接受连接事件
+    struct sock_event sock_accept;
+};
+
+struct cfrp_client
+{
+};
+
 struct cfrp
 {
-    // 主要监听服务
+    // 上下文
+    void *ctx;
+    // 服务端与客户端之前通讯服务
     struct sock *msk;
     // 映射信息
     struct cfrp_mapping mappings;
-    // 会话信息
-    struct cfrp_session sessions;
     // 工作
     struct cfrp_job job;
     // 多路复用
-    struct cfrp_epoll epoll;
+    struct cfrp_epoll *epoll;
+    // 服务端或客户端实体
+    void *entry;
     // 共享内存
     void *shm;
 };
@@ -149,12 +161,19 @@ struct cfrp_operating
     int (*stop)(struct cfrp *);
     int (*reload)(struct cfrp *);
     int (*restart)(struct cfrp *);
-    int (*kill)(struct cfrp *, char *sid);
+    int (*kill)(struct cfrp_session *slist, char *sid);
+};
+
+struct cfrp_arg
+{
+    int argc;
+    char **argv;
 };
 
 struct cfrp_context
 {
     int pid;
+    struct cfrp_arg arg;
     struct cfrp *frp;
     struct cfrp_operating *op;
 };
@@ -162,9 +181,9 @@ struct cfrp_context
 typedef struct cfrp_context cfrps;
 typedef struct cfrp_context cfrpc;
 
-extern cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings);
+extern cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
 
-extern cfrpc *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings);
+extern cfrpc *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
 
 /**
  * 启动
@@ -180,39 +199,20 @@ extern int cfrp_restart(struct cfrp_context *ctx);
 */
 extern int cfrp_reload(struct cfrp_context *ctx);
 /**
- * 杀死一个会话
-*/
-extern int cfrp_kill(struct cfrp_context *ctx, char *sid);
-/**
  * 停止
 */
 extern int cfrp_stop(struct cfrp_context *ctx);
 
-extern int cfrp_verify(struct cfrp *frp, char *sid);
+extern int cfrp_procinit(struct cfrp_context *ctx, int argv, char **argc);
 
-extern int cfrp_proto(struct cfrp *frp, struct cfrp_protocol *dest, char *sid);
+extern int cfrp_setprotitle(struct cfrp_context *ctx, char *name);
 
-extern int cfrp_recv(struct cfrp *frp, char *sid, void *buff, size_t size);
-
-extern int cfrp_send(struct cfrp *frp, char *sid, void *data, size_t size);
-
-extern int cfrp_tranform(struct cfrp *frp, char *dest_sid, char *src_sid, size_t size);
-
-extern int cfrp_sadd(struct cfrp *frp, struct cfrp_session *session);
-
-extern struct cfrp_session *cfrp_sget(struct cfrp *frp, char *sid);
-
-extern struct cfrp_session *cfrp_sdel(struct cfrp *frp, char *sid);
-
-/**
- * 生成一个唯一会话Id
-*/
-extern char *cfrp_gensid();
-
-typedef struct cfrp_worker worker_t;
+typedef struct cfrp_worker fworker_t;
 typedef struct cfrp cfrp_t;
-typedef struct cfrp_mapping mapping_t;
-typedef struct cfrp_session session_t;
-typedef struct sock sock_t;
-typedef struct cfrp_job job_t;
+typedef struct cfrp_mapping fmapping_t;
+typedef struct cfrp_session fsession_t;
+typedef struct sock fsock_t;
+typedef struct cfrp_job fjob_t;
+typedef struct cfrp_context fctx_t;
+typedef struct cfrp_server fserver_t;
 #endif

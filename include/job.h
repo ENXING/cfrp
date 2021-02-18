@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "cfrp.h"
 
-typedef void (*woker_handler)(worker_t *wk);
+typedef void (*woker_handler)(fworker_t *wk);
 
 extern void cfrp_start_worker_process(struct cfrp *frp, woker_handler run_process);
 

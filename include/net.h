@@ -59,4 +59,6 @@ extern int sock_flush(struct sock *sk);
 
 extern int sock_close(struct sock *sk);
 
+typedef struct sock sock_t;
+
 #endif
