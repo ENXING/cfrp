@@ -11,5 +11,5 @@ extern int cfrp_epoll_add(struct cfrp_epoll *epoll, fsock_t *sk);
 extern int cfrp_epoll_reuse(struct cfrp_epoll *epoll, fsock_t *sk);
 extern int cfrp_epoll_del(struct cfrp_epoll *epoll, fsock_t *sk);
 extern int cfrp_epoll_close(struct cfrp_epoll *epoll);
-
+extern int cfrp_epoll_clear(struct cfrp_epoll *epoll);
 #endif

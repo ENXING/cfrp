@@ -10,7 +10,7 @@ extern struct cfrp_session *cfrp_sdel(struct cfrp_session *slist, char *sid);
 
 /**
  * 生成一个唯一会话Id
-*/
-extern char *cfrp_gensid();
+ */
+extern char *cfrp_gensid(char *dest, size_t size);
 
 #endif

@@ -1,42 +1,37 @@
 #ifndef __NET_H__
 #define __NET_H__
-#include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include "buffer.h"
 
 #define SOCK_LISTEN_NUM 10
 
-#define SOCK_ADDR_IN(port, host) { \
-    .sin_family = AF_INET,         \
-    .sin_port = htons(port),       \
-    .sin_addr = {.s_addr = inet_addr(host)}};
+#define SOCK_ADDR_IN(port, host) {.sin_family = AF_INET, .sin_port = htons(port), .sin_addr = {.s_addr = inet_addr(host)}};
 
-struct stream_operating
-{
-    int (*recv)(void *sk, void *buffer, size_t size);
-    int (*send)(void *sk, void *data, size_t size);
-    int (*flush)(void *sk);
-    int (*close)(void *sk);
+struct stream_operating {
+  int (*recv)(void *sk, void *buffer, size_t size);
+  int (*send)(void *sk, void *data, size_t size);
+  int (*flush)(void *sk);
+  int (*close)(void *sk);
 };
 
-struct sock
-{
-    // 文件描述符
-    int fd;
-    // 类型
-    int type;
-    // 端口号
-    int port;
-    // 主机地址
-    char *host;
-    // 是否锁定操作
-    char op_lock;
-    // 流操作指针
-    void *stream_ptr;
-    struct stream_operating *op;
-    char recv_stat;
-    char send_stat;
+struct sock {
+  // 文件描述符
+  int fd;
+  // 类型
+  int type;
+  // 端口号
+  int port;
+  // 主机地址
+  char *host;
+  // 是否锁定操作
+  char op_lock;
+  // 流操作指针
+  void *stream_ptr;
+  struct stream_operating *op;
+  char recv_stat;
+  char send_stat;
 };
 
 extern struct sock *make_tcp(uint port, char *bind_addr);
