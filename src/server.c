@@ -60,7 +60,7 @@ static void cfrp_server_accept(struct cfrp *frp, fworker_t *wk) {
   struct sock_event *event;
   list_foreach(entry, &server->sock_accept.list) {
     event = list_entry(entry, struct sock_event, list);
-    cfrp_epoll_add(frp->epoll, event->sk);
+    cfrp_epoll_add(frp->epoll, event);
   }
   struct sock_event events[10], *ev;
   int num = 0;
