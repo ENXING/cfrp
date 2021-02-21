@@ -18,7 +18,7 @@ extern void cshm_release(struct cfrp_shm *shm);
 static inline int cshm_isnui(void *ptr, size_t size) {
   char *chrs = (char *)ptr;
   for (size_t i = 0; i < size && ptr; i++) {
-    if (chrs[i] != '\0') {
+    if (chrs[i]) {
       return 0;
     }
   }
