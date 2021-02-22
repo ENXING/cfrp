@@ -14,14 +14,18 @@ int cfrp_unlock(fjob_t *job) {
   return cfrp_atomic_cpm_set(job->lock, CFRP_MUTEX_LOCK, CFRP_MUTEX_UNLOCK);
 }
 
-void cfrp_mutex(struct cfrp *frp, fworker_t *wk, mutex_sync sync) {
+void cfrp_mutex(struct cfrp *frp, fworker_t *wk, mutex_sync sync_exec) {
   __non_null__(frp, ;);
   __non_null__(wk, ;);
   if (cfrp_try_lock(&frp->job)) {
-    log_debug("cfrp locked. pid: %d", wk->pid);
+    log_debug("cfrp acquire %d", wk->pid);
+    ftime start_tm, end_tm;
+    cfrp_nowtime(&start_tm);
     frp->job.lock->aptr = wk;
-    sync(frp, wk);
+    sync_exec(frp, wk);
+    cfrp_nowtime(&end_tm);
+    log_debug("execute time consuming: %2f seconds", cfrp_difftime(&start_tm, &end_tm));
     cfrp_unlock(&frp->job);
-    log_debug("cfrp unlock. pid: %d", wk->pid);
+    log_debug("cfrp release %d", wk->pid);
   }
 }

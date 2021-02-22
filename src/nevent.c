@@ -14,7 +14,7 @@ struct cfrp_epoll *cfrp_epoll_create() {
 }
 
 extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_events, int max_event, int timeout) {
-  log_debug("wait for a sock event ...");
+  log_debug("wait for a sock event");
   struct epoll_event events[max_event - 1], *ev;
   struct sock_event *sev;
   int num = 0;
@@ -34,11 +34,12 @@ extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_event
     } else if (ev->events & EPOLLOUT) {
       sev->events = CFRP_EVENT_OUT;
     } else if (ev->events & EPOLLERR) {
-      sev->events = EPOLLERR;
+      sev->events = CFRO_EVENT_ERR;
     }
     list_add(&sev->list, &sk_events->list);
   }
-  log_info("epoll event num: %d", num);
+  if (num > 0)
+    log_debug("waiting sock number of events: %d", num);
   return num;
 }
 
@@ -46,12 +47,12 @@ int cfrp_epoll_add(struct cfrp_epoll *epoll, struct sock_event *event) {
   __non_null__(event, C_ERROR);
   struct sock_event *sk_event = cfrp_malloc(sizeof(struct sock_event));
   __non_null__(sk_event, C_ERROR);
-  cfrp_memcopy(sk_event, event, sizeof(struct sock_event));
+  cfrp_memcpy(sk_event, event, sizeof(struct sock_event));
   cfrp_zero(&sk_event->list, sizeof(struct list_head));
-  sock_t *sk = event->sk;
+  sock_t *sk = sk_event->sk;
   log_debug("listen for a sock event. %s:%d#%d", sk->host, sk->port, sk->fd);
   struct epoll_event ev;
-  ev.events = EPOLLET | EPOLLIN, ev.data.fd = sk->fd;
+  ev.events = EPOLLET | EPOLLIN | EPOLLERR, ev.data.fd = sk->fd;
   ev.data.ptr = sk;
   list_add(&sk_event->list, &epoll->events.list);
   return epoll_ctl(epoll->efd, EPOLL_CTL_ADD, sk->fd, &ev);
@@ -73,6 +74,7 @@ int cfrp_epoll_close(struct cfrp_epoll *epoll) {
 
 int cfrp_epoll_clear(struct cfrp_epoll *epoll) {
   __non_null__(epoll, C_ERROR);
+  log_debug("clear event set");
   struct list_head *entry;
   struct sock_event *ev;
   list_foreach(entry, &epoll->events.list) {

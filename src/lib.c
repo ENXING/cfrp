@@ -1,6 +1,4 @@
 #include <stdlib.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 
 #include "lib.h"
 #include "logger.h"
@@ -27,7 +25,7 @@ void *cfrp_memset(void *ptr, int c, size_t size) {
   return memset(ptr, c, size);
 }
 
-void *cfrp_memcopy(void *dest, void *src, size_t size) {
+void *cfrp_memcpy(void *dest, void *src, size_t size) {
   __non_null__(dest, NULL);
   __non_null__(src, NULL);
   return memcpy(dest, src, size);
@@ -54,39 +52,49 @@ int cfrp_memcmp(void *v1, void *v2, size_t size) {
   return memcmp(v1, v2, size);
 }
 
-struct shm_table *cfrp_shmget(size_t size) {
-  shmtable_t *st = (shmtable_t *)cfrp_malloc(sizeof(shmtable_t));
-  cfrp_zero(st, sizeof(shmtable_t));
-  __non_null__(st, NULL);
-  if ((st->shid = shmget(IPC_PRIVATE, size, IPC_CREAT | SHM_EXEC | 0777)) < 0) {
-    log_debug("sgmget failure: %s", SYS_ERROR);
-    return NULL;
-  }
-  st->ptr = shmat(st->shid, NULL, 0);
-  cfrp_zero(st->ptr, size);
-  if (st->ptr == (void *)-1) {
-    log_debug("shmat failure: %s", SYS_ERROR);
-    cfrp_shmfree(st);
-    return NULL;
-  }
-  st->use_size = 0;
-  st->size = size;
-  return st;
+extern struct cfrp_time *cfrp_nowtime(struct cfrp_time *now) {
+  __non_null__(now, NULL);
+  time(&now->ctm);
+  return now;
 }
 
-void *cfrp_shmblock(struct shm_table *st, size_t size) {
-  __non_null__(st, NULL);
-  if (st->use_size + size > st->size) {
-    log_error("not enough space");
-    return NULL;
-  }
-  void *ptr = st->ptr + st->use_size;
-  cfrp_zero(ptr, size);
-  st->use_size += size;
-  return ptr;
+extern double cfrp_difftime(struct cfrp_time *start_time, struct cfrp_time *end_time) {
+  __non_null__(start_time, 0);
+  __non_null__(end_time, 0);
+  return difftime(end_time->ctm, start_time->ctm);
 }
 
-int cfrp_shmfree(struct shm_table *st) {
-  __non_null__(st, C_ERROR);
-  return shmctl(st->shid, IPC_RMID, NULL);
+char *cfrp_formattime(char *buffer, size_t buffer_size, char *format, struct cfrp_time *ttime) {
+  __non_null__(ttime, NULL);
+  __non_null__(buffer, NULL);
+  if (strftime(buffer, buffer_size, format, localtime(&ttime->ctm)) <= 0) {
+    return NULL;
+  }
+  return buffer;
+}
+
+int cfrp_atoi(char *str) {
+  __non_null__(str, C_ERROR);
+  return atoi(str);
+}
+
+long int cfrp_atol(char *str) {
+  __non_null__(str, C_ERROR);
+  return atol(str);
+}
+
+double cfrp_atof(char *str) {
+  __non_null__(str, C_ERROR);
+  return atof(str);
+}
+
+int cfrp_strlen(char *str) {
+  __non_null__(str, 0);
+  return strlen(str);
+}
+
+char *cfrp_strcpy(char *dest, char *src) {
+  __non_null__(dest, NULL);
+  __non_null__(src, NULL);
+  return strcpy(dest, src);
 }

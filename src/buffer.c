@@ -75,7 +75,7 @@ int buffer_astr(struct buffer *buf, char *str, size_t size) {
 int buffer_aany(struct buffer *buf, void *any, size_t size) {
   CHECK_NULL(buf);
   CHECK_SPACE(buf, size);
-  if (!cfrp_memcopy(BUFFER_OFFSET(buf, buf->use_size), any, size))
+  if (!cfrp_memcpy(BUFFER_OFFSET(buf, buf->use_size), any, size))
     return C_ERROR;
   buf->use_size += size;
   return C_SUCCESS;
@@ -85,7 +85,7 @@ int buffer_sub(struct buffer *buf, void *dest, size_t begin, size_t end) {
   CHECK_NULL(buf);
   if (!dest || (end && begin >= end) || buf->use_size < end || buf->use_size < begin)
     return C_ERROR;
-  return cfrp_memcopy(dest, BUFFER_OFFSET(buf, begin), end ? end - begin : buf->use_size) ? C_SUCCESS : C_ERROR;
+  return cfrp_memcpy(dest, BUFFER_OFFSET(buf, begin), end ? end - begin : buf->use_size) ? C_SUCCESS : C_ERROR;
 }
 
 int buffer_ichr(struct buffer *buf, size_t index, char chr) {
@@ -102,7 +102,7 @@ int buffer_iany(struct buffer *buf, size_t index, void *any, size_t size) {
   // 先将需要被插入的位置移动
   // 插入数据
   if (!cfrp_memmove(BUFFER_OFFSET(buf, index + size), BUFFER_OFFSET(buf, index), buf->use_size - index) ||
-      !cfrp_memcopy(BUFFER_OFFSET(buf, index), any, size))
+      !cfrp_memcpy(BUFFER_OFFSET(buf, index), any, size))
     return C_ERROR;
   buf->use_size += size;
   return C_SUCCESS;

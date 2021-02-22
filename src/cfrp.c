@@ -5,12 +5,7 @@
   if (!check_operating(ctx))                                                                                                                         \
     return C_ERROR;
 
-size_t cfrp_shm_size() {
-  static const size_t lock_size = sizeof(struct cfrp_lock);
-  static const size_t wait_sock_size = sizeof(struct cfrp_session) * CFRP_MAX_WAIT_CONN_NUM;
-  static const size_t sk_pair = sizeof(struct sock) * 2;
-  return lock_size + wait_sock_size + sk_pair;
-}
+
 
 static inline int check_operating(fctx_t *ctx) {
   __non_null__(ctx, C_ERROR);

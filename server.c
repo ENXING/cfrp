@@ -8,7 +8,7 @@ extern char **environ;
 
 int main(int argc, char **argv) {
 
-  log_level() = LOGGER_INFO;
+  log_level() = LOGGER_DEBUG;
   fmapping_t head;
   fmapping_t mp = {.addr = "127.0.0.1", .port = 8083};
   fmapping_t mp2 = {.addr = "127.0.0.1", .port = 8084};

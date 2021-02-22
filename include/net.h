@@ -54,6 +54,26 @@ extern int sock_flush(struct sock *sk);
 
 extern int sock_close(struct sock *sk);
 
+/**
+ * 非阻塞 IO
+ */
+extern int sock_noblocking(struct sock *sk);
+
+/**
+ * 读取超时时间
+ */
+extern int sock_recv_timeout(struct sock *sk, int timeout);
+
+/**
+ * 写入超时时间
+ */
+extern int sock_send_timeout(struct sock *sk, int timeout);
+
+/**
+ * 端口复用
+ */
+extern int sock_port_reuse(struct sock *sk, int val);
+
 typedef struct sock sock_t;
 
 #endif

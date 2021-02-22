@@ -1,8 +1,18 @@
 #include "cfrp.h"
+#include "lib.h"
 #include "logger.h"
 
 int main(int argc, char **argv) {
   log_level() = LOGGER_DEBUG;
-  cfrp_start(NULL);
+  if (argc < 3) {
+    log_error("parameter is not enough. %s [host] [port]", argv[0]);
+    return 0;
+  }
+  cfrpc *frpc = make_cfrpc(argv[1], cfrp_atoi(argv[2]), NULL, argc, argv);
+  if (!frpc) {
+    log_error("make cfrp error");
+    return 0;
+  }
+  cfrp_start(frpc);
   return 0;
 }

@@ -1,6 +1,8 @@
 #ifndef __LIB_H__
 #define __LIB_H__
 #include "list.h"
+#include <time.h>
+
 #include <unistd.h>
 
 #define LOOP for (;;)
@@ -13,18 +15,12 @@
 
 #define cfrp_cpu sysconf(_SC_NPROCESSORS_ONLN)
 
-struct shm_block {
-  size_t size;
-  void *ptr;
-  struct list_head list;
-};
+#define cfrp_void_assert(cond)                                                                                                                       \
+  if (cond)                                                                                                                                          \
+  return
 
-struct shm_table {
-  int shid;
-  size_t size;
-  size_t use_size;
-  void *ptr;
-  struct shm_block blocks;
+struct cfrp_time {
+  time_t ctm;
 };
 
 extern void *cfrp_malloc(size_t size);
@@ -37,7 +33,7 @@ extern int cfrp_zero(void *ptr, size_t size);
 
 extern int cfrp_free(void *ptr);
 
-extern void *cfrp_memcopy(void *dest, void *src, size_t size);
+extern void *cfrp_memcpy(void *dest, void *src, size_t size);
 
 extern void *cfrp_memset(void *ptr, int c, size_t size);
 
@@ -45,12 +41,21 @@ extern void *cfrp_memmove(void *dest, void *src, size_t size);
 
 extern int cfrp_memcmp(void *v1, void *v2, size_t size);
 
-extern struct shm_table *cfrp_shmget(size_t size);
+extern int cfrp_strlen(char *str);
 
-extern void *cfrp_shmblock(struct shm_table *st, size_t size);
+extern char *cfrp_strcpy(char *dest, char *src);
 
-extern int cfrp_shmfree(struct shm_table *tab);
+extern int cfrp_atoi(char *str);
 
-typedef struct shm_table shmtable_t;
+extern long int cfrp_atol(char *str);
 
+extern double cfrp_atof(char *str);
+
+extern struct cfrp_time *cfrp_nowtime(struct cfrp_time *now);
+
+extern double cfrp_difftime(struct cfrp_time *start_time, struct cfrp_time *end_time);
+
+extern char *cfrp_formattime(char *buffer, size_t buffer_size, char *format, struct cfrp_time *ttime);
+
+typedef struct cfrp_time ftime;
 #endif

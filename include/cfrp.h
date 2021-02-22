@@ -10,10 +10,8 @@
 #define CFRP_HEAD_SIZE sizeof(struct cfrp_protocol)
 // 最大等待客户端连接数量
 #define CFRP_MAX_WAIT_CONN_NUM 10
-#define cfrp_mpair(sk) (sk)     // 主要
-#define cfrp_spair(sk) (sk + 1) // 次要
-
-#define CFRP_SHMSIZE cfrp_shm_size()
+#define cfrp_pair_first(sk) (sk)    // 主要
+#define cfrp_pair_last(sk) (sk + 1) // 次要
 
 /**
  * cfrp传输协议
@@ -24,8 +22,9 @@ struct cfrp_protocol {
   // 0x01: 正常传输
   // 0x02: 断开连接
   // 0x03: 会话异常
-  // 0x04: 建立新连接
+  // 0x04: 建立映射连接
   // 0x05: 建立主连接
+  // 0x06: 关闭连接
   char type;
   // 本次会话id
   char sid[SID_LEN];
@@ -97,6 +96,15 @@ struct worker_operating {
   int (*kill)(void *, struct cfrp_session *);
 };
 
+/**
+ * 计数器
+ *
+ */
+struct cfrp_counter {
+  size_t max; // 上限
+  size_t counter;
+};
+
 struct cfrp_worker {
   int pid;
   void *ctx;
@@ -122,14 +130,18 @@ struct cfrp_lock {
 };
 
 struct cfrp_server {
-  struct sock *msk_pair;
-  // 接受连接事件
-  struct sock_event sock_accept;
-  // 等待 session
-  struct cfrp_session *wait_sessions;
+  struct sock *sock_pair;
+  struct sock_event sock_accept;      // 接受连接事件
+  struct cfrp_counter *wcounter;      // 等待会话计数器
+  struct cfrp_session *wait_sessions; // 等待 session
 };
 
-struct cfrp_client {};
+struct cfrp_client {
+  char *host;                 // 服务端主机地址
+  int port;                   // 服务端端口
+  struct sock *csk;           // 客户端通讯的sock,
+  struct sock_event event_rw; // 读写事件
+};
 
 struct cfrp {
   // 上下文
@@ -169,8 +181,6 @@ struct cfrp_context {
 typedef struct cfrp_context cfrps;
 typedef struct cfrp_context cfrpc;
 
-extern size_t cfrp_shm_size();
-
 extern cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
 
 extern cfrpc *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
@@ -205,4 +215,5 @@ typedef struct sock fsock_t;
 typedef struct cfrp_job fjob_t;
 typedef struct cfrp_context fctx_t;
 typedef struct cfrp_server fserver_t;
+typedef struct cfrp_client fclient_t;
 #endif

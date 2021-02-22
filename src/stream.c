@@ -6,13 +6,13 @@ typedef int (*__sock_stream_io__)(void *sk, void *buff, size_t size);
 typedef int (*__sock_stream_op__)(void *sk);
 
 static int sock_brecv(struct sock *sk, void *buff, size_t size) {
-  log_info("brecv");
-  return C_ERROR;
+  log_debug("sock recv %ld", size);
+  return recv(sk->fd, buff, size, 0);
 }
 
 static int sock_bsend(struct sock *sk, void *data, size_t size) {
-  log_info("bsend");
-  return C_ERROR;
+  log_debug("sock send %ld", size);
+  return send(sk->fd, data, size, 0);
 }
 
 static int sock_bflush(struct sock *sk) {
@@ -32,8 +32,8 @@ static int sock_bclose(struct sock *sk) {
  */
 struct stream_operating *stream_base(sock_t *sk) {
   __non_null__(sk, NULL);
-  static struct stream_operating op = {.send = (__sock_stream_io__)sock_brecv,
-                                       .recv = (__sock_stream_io__)sock_bsend,
+  static struct stream_operating op = {.send = (__sock_stream_io__)sock_bsend,
+                                       .recv = (__sock_stream_io__)sock_brecv,
                                        .flush = (__sock_stream_op__)sock_bflush,
                                        .close = (__sock_stream_op__)sock_bclose};
   sk->op = &op;

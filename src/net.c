@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "lib.h"
@@ -124,4 +125,41 @@ int sock_close(struct sock *sk) {
   __check_sock_op__(sk);
   __non_null__(sk->op->close, C_ERROR);
   return sk->op->close(sk);
+}
+
+/**
+ * 非阻塞 IO
+ */
+extern int sock_noblocking(struct sock *sk) {
+  __non_null__(sk, C_ERROR);
+  return set_noblocking(sk->fd);
+}
+
+static inline int set_sock_timeout(struct sock *sk, int timeout, int flag) {
+  struct timeval tm = {.tv_sec = timeout, .tv_usec = 0};
+  return setsockopt(sk->fd, SOL_SOCKET, flag, &tm, sizeof(struct timeval));
+}
+
+/**
+ * 读取超时时间
+ */
+extern int sock_recv_timeout(struct sock *sk, int timeout) {
+  __non_null__(sk, C_ERROR);
+  return set_sock_timeout(sk, timeout, SO_RCVTIMEO);
+}
+
+/**
+ * 写入超时时间
+ */
+extern int sock_send_timeout(struct sock *sk, int timeout) {
+  __non_null__(sk, C_ERROR);
+  return set_sock_timeout(sk, timeout, SO_SNDTIMEO);
+}
+
+/**
+ * 端口复用
+ */
+extern int sock_port_reuse(struct sock *sk, int val) {
+  __non_null__(sk, C_ERROR);
+  return setsockopt(sk->fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
 }
