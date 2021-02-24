@@ -29,7 +29,7 @@ extern void *cfrp_realloc(void *ptr, size_t size);
 
 extern void *cfrp_calloc(size_t num, size_t size);
 
-extern int cfrp_zero(void *ptr, size_t size);
+extern int cfrp_memzero(void *ptr, size_t size);
 
 extern int cfrp_free(void *ptr);
 
@@ -56,6 +56,8 @@ extern struct cfrp_time *cfrp_nowtime(struct cfrp_time *now);
 extern double cfrp_difftime(struct cfrp_time *start_time, struct cfrp_time *end_time);
 
 extern char *cfrp_formattime(char *buffer, size_t buffer_size, char *format, struct cfrp_time *ttime);
+
+extern pid_t cfrp_getpid();
 
 typedef struct cfrp_time ftime;
 #endif

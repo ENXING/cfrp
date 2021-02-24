@@ -6,16 +6,16 @@
 /**
  * 正常发送
  */
-extern struct stream_operating *stream_base(sock_t *sk);
+extern struct stream_operating *stream_base(cfrp_sock_t *sk);
 
 /**
  * 带缓存发送
  */
-extern struct stream_operating *stream_buffer(sock_t *sk, struct buffer *buf);
+extern struct stream_operating *stream_buffer(cfrp_sock_t *sk, struct buffer *buf);
 
 /**
  * 分包发送
  */
-extern struct stream_operating *stream_subpackage(sock_t *sk, size_t total, size_t package);
+extern struct stream_operating *stream_subpackage(cfrp_sock_t *sk, size_t total, size_t package);
 
 #endif

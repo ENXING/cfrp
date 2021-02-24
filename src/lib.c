@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "lib.h"
 #include "logger.h"
@@ -8,7 +9,7 @@ void *cfrp_malloc(size_t size) {
   return malloc(size);
 }
 
-int cfrp_zero(void *ptr, size_t size) {
+int cfrp_memzero(void *ptr, size_t size) {
   __non_null__(ptr, C_ERROR);
   memset(ptr, '\0', size);
   return C_SUCCESS;
@@ -42,7 +43,7 @@ void *cfrp_realloc(void *ptr, size_t size) {
   return realloc(ptr, size);
 }
 
-void *cfrp_callc(size_t num, size_t size) {
+void *cfrp_calloc(size_t num, size_t size) {
   return calloc(num, size);
 }
 
@@ -97,4 +98,8 @@ char *cfrp_strcpy(char *dest, char *src) {
   __non_null__(dest, NULL);
   __non_null__(src, NULL);
   return strcpy(dest, src);
+}
+
+pid_t cfrp_getpid() {
+  return getpid();
 }

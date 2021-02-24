@@ -74,6 +74,7 @@ extern int sock_send_timeout(struct sock *sk, int timeout);
  */
 extern int sock_port_reuse(struct sock *sk, int val);
 
-typedef struct sock sock_t;
+
+typedef struct sock cfrp_sock_t;
 
 #endif

@@ -23,10 +23,10 @@ static inline void INIT_LIST_HEAD(struct list_head *list) {
 }
 
 static inline void __list_add(struct list_head *new_list, struct list_head *prev, struct list_head *next) {
-  next->prev = new_list;
+  next->prev     = new_list;
   new_list->next = next;
   new_list->prev = prev;
-  prev->next = new_list;
+  prev->next     = new_list;
 }
 
 static inline void list_add(struct list_head *new_list, struct list_head *head) {

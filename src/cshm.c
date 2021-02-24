@@ -12,11 +12,11 @@ typedef struct {
 } cfrp_shm_entry;
 
 struct cfrp_shm *make_cshm(size_t size) {
-  fshm_t *shm = (fshm_t *)cfrp_malloc(sizeof(fshm_t));
+  cfrp_shm_t *shm       = (cfrp_shm_t *)cfrp_malloc(sizeof(cfrp_shm_t));
   cfrp_shm_entry *entry = (cfrp_shm_entry *)cfrp_malloc(sizeof(cfrp_shm_entry));
   __non_null__(shm, NULL);
   __non_null__(entry, NULL);
-  int shm_id = 0;
+  int shm_id     = 0;
   void *data_ptr = (void *)-1;
   if ((shm_id = shmget(IPC_PRIVATE, size, IPC_CREAT | SHM_EXEC | 0777)) < 0 || (data_ptr = shmat(shm_id, NULL, 0)) == (void *)-1) {
     shm_id != -1 && shmctl(shm_id, IPC_RMID, NULL);
@@ -24,13 +24,13 @@ struct cfrp_shm *make_cshm(size_t size) {
     cfrp_free(shm);
     return NULL;
   }
-  cfrp_zero(data_ptr, size);
-  entry->shm_id = shm_id;
+  cfrp_memzero(data_ptr, size);
+  entry->shm_id   = shm_id;
   entry->data_ptr = data_ptr;
-  entry->total = size;
-  entry->use = 0;
-  shm->entry = entry;
-  shm->size = entry->total;
+  entry->total    = size;
+  entry->use      = 0;
+  shm->entry      = entry;
+  shm->size       = entry->total;
   log_debug("share memory size: %ld", size);
   return shm;
 }

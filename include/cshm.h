@@ -25,6 +25,5 @@ static inline int cshm_isnui(void *ptr, size_t size) {
   return 1;
 }
 
-typedef struct cfrp_shm fshm_t;
-typedef struct cfrp_bshm fbshm_t;
+typedef struct cfrp_shm cfrp_shm_t;
 #endif

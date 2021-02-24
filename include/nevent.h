@@ -1,6 +1,10 @@
 #ifndef __EVENT_H__
 #define __EVENT_H__
 #include "cfrp.h"
+
+#define CFRP_CHANNEL 10
+#define CFRP_SOCK 20
+
 #define CFRP_EVENT_IN 1
 #define CFRP_EVENT_OUT 2
 #define CFRO_EVENT_ERR 3

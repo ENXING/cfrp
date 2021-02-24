@@ -59,7 +59,7 @@ int buffer_zero(struct buffer *buf) {
   CHECK_NULL(buf);
   if (buf->total_size == 0)
     return C_ERROR;
-  cfrp_zero(buf->bytes, buf->total_size);
+  cfrp_memzero(buf->bytes, buf->total_size);
   buf->use_size = 0;
   return C_SUCCESS;
 }

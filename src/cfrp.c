@@ -5,9 +5,7 @@
   if (!check_operating(ctx))                                                                                                                         \
     return C_ERROR;
 
-
-
-static inline int check_operating(fctx_t *ctx) {
+static inline int check_operating(cfrp_ctx_t *ctx) {
   __non_null__(ctx, C_ERROR);
   __non_null__(ctx->op, C_ERROR);
   return C_SUCCESS;

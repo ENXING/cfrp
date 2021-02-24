@@ -12,20 +12,20 @@
 #include "stream.h"
 #include "types.h"
 
-typedef struct sock sock_t;
+typedef struct sock cfrp_sock_t;
 
 #define __check_sock_op__(sk)                                                                                                                        \
   if (check_sock_op(sk) != C_SUCCESS)                                                                                                                \
     return C_ERROR;
 
-static inline int check_sock_op(sock_t *sk) {
+static inline int check_sock_op(cfrp_sock_t *sk) {
   __non_null__(sk, C_ERROR);
   __non_null__(sk->op, C_ERROR);
   return C_SUCCESS;
 }
 
 static struct sock *get_sock(int fd, uint port, char *host) {
-  sock_t *sk = cfrp_malloc(sizeof(sock_t));
+  cfrp_sock_t *sk = cfrp_malloc(sizeof(cfrp_sock_t));
   sk->fd = fd;
   sk->port = port;
   sk->host = host;
@@ -72,7 +72,7 @@ struct sock *make_tcp_connect(uint port, char *host) {
     log_error("connect to %s:%d failure, msg: %s", host, port, SYS_ERROR);
     return NULL;
   }
-  sock_t *sk = get_sock(fd, port, host);
+  cfrp_sock_t *sk = get_sock(fd, port, host);
   log_debug("connect to %s:%d success", host, port);
   return sk;
 }
@@ -98,7 +98,7 @@ struct sock *sock_accept(struct sock *sk) {
     log_error("accpet connect error! %s:%d#%d, msg: %s", sk->host, sk->port, sk->fd, SYS_ERROR);
     return NULL;
   }
-  sock_t *connect_sk = get_sock(fd, ntohs(addr.sin_port), inet_ntoa(addr.sin_addr));
+  cfrp_sock_t *connect_sk = get_sock(fd, ntohs(addr.sin_port), inet_ntoa(addr.sin_addr));
   log_debug("%s:%d#%d accept connect %s:%d#%d", sk->host, sk->port, sk->fd, connect_sk->host, connect_sk->port, fd);
   return connect_sk;
 }

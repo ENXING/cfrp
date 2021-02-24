@@ -46,6 +46,12 @@ struct cfrp_protocol {
   } packet_info;
 };
 
+struct cfrp_channel {
+  int fd;
+  int command;
+  int slot;
+};
+
 /**
  * cfrp payload
  */
@@ -81,12 +87,18 @@ struct cfrp_session {
 };
 
 struct sock_event {
-  struct sock *sk;
+  union {
+    struct sock *sk;
+    struct cfrp_channel *channel;
+  } entry;
+  int type; // channel or sock
   int events;
   struct list_head list;
+  void *ptr;
 };
 
 struct cfrp_epoll {
+  pid_t pid;
   int efd;
   struct sock_event events;
 };
@@ -107,19 +119,12 @@ struct cfrp_counter {
 
 struct cfrp_worker {
   int pid;
-  void *ctx;
-  uint counter;
-  struct worker_operating *op;
-  // epoll
-  struct cfrp_epoll *epoll;
   struct cfrp_session sessions;
   struct list_head list;
-};
-
-struct cfrp_job {
-  // 互斥锁
-  struct cfrp_lock *lock;
-  struct cfrp_worker wokers;
+  void *ctx;
+  uint counter;
+  struct cfrp_channel *chnnel;
+  struct worker_operating *op;
 };
 
 struct cfrp_lock {
@@ -144,18 +149,26 @@ struct cfrp_client {
 };
 
 struct cfrp {
-  // 上下文
-  void *ctx;
   // 映射信息
   struct cfrp_mapping mappings;
-  // 工作
-  struct cfrp_job job;
+  // 子进程数量
+  uint woker_num;
+  // 所有子进程
+  struct cfrp_worker wokers;
+  // channel event
+  struct sock_event channel_event;
+  // 全局共享锁
+  struct cfrp_lock *lock;
+  // 进程间通讯
+  struct cfrp_channel *channels;
   // 多路复用
   struct cfrp_epoll *epoll;
   // 服务端或客户端实体
   void *entry;
   // 共享内存
   void *shm;
+  // 上下文
+  void *ctx;
 };
 
 struct cfrp_operating {
@@ -178,12 +191,12 @@ struct cfrp_context {
   struct cfrp_operating *op;
 };
 
-typedef struct cfrp_context cfrps;
-typedef struct cfrp_context cfrpc;
+typedef struct cfrp_context cfrps_t;
+typedef struct cfrp_context cfrpc_t;
 
-extern cfrps *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
+extern cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
 
-extern cfrpc *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
+extern cfrpc_t *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
 
 /**
  * 启动
@@ -207,13 +220,20 @@ extern int cfrp_procinit(struct cfrp_context *ctx, int argv, char **argc);
 
 extern int cfrp_setprotitle(struct cfrp_context *ctx, char *name);
 
-typedef struct cfrp_worker fworker_t;
+typedef struct cfrp_worker cfrp_worker_t;
 typedef struct cfrp cfrp_t;
-typedef struct cfrp_mapping fmapping_t;
-typedef struct cfrp_session fsession_t;
-typedef struct sock fsock_t;
-typedef struct cfrp_job fjob_t;
-typedef struct cfrp_context fctx_t;
-typedef struct cfrp_server fserver_t;
-typedef struct cfrp_client fclient_t;
+typedef struct cfrp_mapping cfrp_mapping_t;
+typedef struct cfrp_session cfrp_session_t;
+typedef struct sock cfrp_sock_t;
+typedef struct cfrp_context cfrp_ctx_t;
+typedef struct cfrp_server cfrp_server_t;
+typedef struct cfrp_client cfrp_client_t;
+typedef struct cfrp_channel cfrp_channel_t;
+typedef struct sock_event cfrp_event_t;
+typedef struct cfrp_operating cfrp_operating_t;
+typedef struct cfrp_counter cfrp_counter_t;
+typedef struct cfrp_lock cfrp_lock_t;
+typedef struct stream_operating cfrp_stream_t;
+typedef struct list_head cfrp_list_t;
+typedef struct cfrp_epoll cfrp_epoll_t;
 #endif

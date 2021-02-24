@@ -30,7 +30,7 @@ static int sock_bclose(struct sock *sk) {
 /**
  * 正常发送
  */
-struct stream_operating *stream_base(sock_t *sk) {
+struct stream_operating *stream_base(cfrp_sock_t *sk) {
   __non_null__(sk, NULL);
   static struct stream_operating op = {.send = (__sock_stream_io__)sock_bsend,
                                        .recv = (__sock_stream_io__)sock_brecv,
@@ -43,7 +43,7 @@ struct stream_operating *stream_base(sock_t *sk) {
 /**
  * 带缓存发送
  */
-struct stream_operating *stream_buffer(sock_t *sk, struct buffer *buf) {
+struct stream_operating *stream_buffer(cfrp_sock_t *sk, struct buffer *buf) {
   __non_null__(sk, NULL);
   return NULL;
 }
@@ -51,7 +51,7 @@ struct stream_operating *stream_buffer(sock_t *sk, struct buffer *buf) {
 /**
  * 分包发送
  */
-struct stream_operating *stream_subpackage(sock_t *sk, size_t total, size_t package) {
+struct stream_operating *stream_subpackage(cfrp_sock_t *sk, size_t total, size_t package) {
   __non_null__(sk, NULL);
   return NULL;
 }
