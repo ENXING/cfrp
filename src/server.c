@@ -1,4 +1,5 @@
 #include "cfrp.h"
+#include "channel.h"
 #include "cshm.h"
 #include "job.h"
 #include "lib.h"
@@ -12,10 +13,27 @@
 static size_t cfrp_shm_size() {
   static const size_t lock_size      = sizeof(struct cfrp_lock);
   static const size_t wait_sock_size = sizeof(struct cfrp_session) * CFRP_MAX_WAIT_CONN_NUM;
-  static const size_t sk_pair        = sizeof(struct sock) * 2;
+  static const size_t sk_pair        = sizeof(struct cfrp_sock) * 2;
   static const size_t counter        = sizeof(struct cfrp_counter);
   return lock_size + wait_sock_size + sk_pair + counter;
 }
+
+static void cfrp_server_sync_sock(struct cfrp *frp, struct cfrp_channel *channel, int cmd, struct cfrp_sock *sk) {
+  cfrp_channel_t *ch;
+  cfrp_cmsg_t msg;
+
+  msg.fd  = sk->fd;
+  msg.cmd = cmd;
+
+  memcpy(&msg.data.sock, sk, sizeof(cfrp_sock_t));
+
+  for (int slot = 0; slot < frp->worker_num; slot++) {
+    ch = &frp->channels[slot];
+    if (cfrp_channel_send(channel, &msg) <= 0) {
+      log_error("sync sock error msg: %s", CFRP_SYS_ERROR);
+    }
+  }
+};
 
 static int cfrp_release_sock_event(struct sock_event *event_head) {
   __non_null__(event_head, C_ERROR);
@@ -33,7 +51,7 @@ static int cfrp_release_sock_event(struct sock_event *event_head) {
   return C_SUCCESS;
 }
 
-static void cfrp_server_auth_client_and_build(cfrp_server_t *fs, cfrp_sock_t *sk) {
+static void cfrp_server_auth_client_and_build(struct cfrp *frp, cfrp_server_t *fs, cfrp_sock_t *sk) {
   cfrp_void_assert(!fs);
   cfrp_void_assert(!sk);
 
@@ -54,10 +72,15 @@ static void cfrp_server_auth_client_and_build(cfrp_server_t *fs, cfrp_sock_t *sk
 
   cfrp_memcpy(cfrp_pair_last(fs->sock_pair), sk, sizeof(cfrp_sock_t));
   cfrp_free(sk);
+
+  // 同步所有信息
+
+  // cfrp_server_sync_sock(frp, w);
+
   log_info("connect auth success: %s:%d#%d", sk->host, sk->port, sk->fd);
 }
 
-static int cfrp_server_build_mapping_session(cfrp_server_t *fs, cfrp_worker_t *wk, cfrp_sock_t *sk) {
+static int cfrp_server_build_mapping_session(struct cfrp *frp, cfrp_server_t *fs, cfrp_sock_t *sk) {
   log_debug("build mapping");
   return C_ERROR;
 }
@@ -94,9 +117,11 @@ static void cfrp_server_build_mapping_wait_session(cfrp_server_t *fs, cfrp_sock_
 /**
  * 处理连接事件
  */
-static void cfrp_server_handler_accept(struct cfrp *frp, cfrp_sock_t *sk, cfrp_worker_t *wk) {
+static void cfrp_server_handler_accept(struct cfrp *frp, cfrp_sock_t *sk) {
   cfrp_sock_t *conn_sk = sock_accept(sk);
-  __non_null__(conn_sk, ;);
+
+  cfrp_void_assert(!conn_sk);
+
   // 设置非阻塞式IO
   cfrp_server_t *fs      = (cfrp_server_t *)frp->entry;
   cfrp_sock_t *client_sk = cfrp_pair_last(fs->sock_pair);
@@ -104,18 +129,19 @@ static void cfrp_server_handler_accept(struct cfrp *frp, cfrp_sock_t *sk, cfrp_w
 
   if (fs->sock_pair == sk) {
     // 如果是server端与客户端通讯的sock那么判断客户端是否存在
-    // 如果不存在尝试进程客户端验证
+    // 如果不存在尝试进行客户端验证
     // 否则的话说明是客户端发起映射请求,那么将会进行映射认证
     sock_recv_timeout(conn_sk, 5);
     sock_send_timeout(conn_sk, 5);
+
     if (client_exists) {
       //检查客户端是否是发起映射请求
       log_debug("create a mapping request");
-      cfrp_server_build_mapping_session(fs, wk, conn_sk);
+      cfrp_server_build_mapping_session(frp, fs, conn_sk);
     } else {
       // 检查客户端是否是与服务建立通讯请求
       log_debug("create a build request");
-      cfrp_server_auth_client_and_build(fs, conn_sk);
+      cfrp_server_auth_client_and_build(frp, fs, conn_sk);
     }
   } else if (client_exists && !sock_noblocking(conn_sk)) {
     // 如果是访问的映射端口, 那么判断看是否已经与客户建立连接,
@@ -132,49 +158,70 @@ static void cfrp_server_handler_accept(struct cfrp *frp, cfrp_sock_t *sk, cfrp_w
 /**
  * 接受连接事件
  */
-static void cfrp_server_accept_or_rw(struct cfrp *frp, cfrp_worker_t *wk) {
+static void cfrp_server_accept_and_read_and_wirte(struct cfrp *frp) {
   log_debug("accepting connection events");
+
+  cfrp_event_t events[10], *event;
   cfrp_server_t *server  = (cfrp_server_t *)frp->entry;
   cfrp_sock_t *client_sk = cfrp_pair_last(server->sock_pair);
-  cfrp_event_t events[10], *event;
+
   log_debug("add read events to the event set");
+
   list_foreach_entry(event, &server->sock_accept.list, list) {
-    cfrp_epoll_add(frp->epoll, event);
+    cfrp_epoll_add(frp->epoll_share, event);
   }
+
   if (!cshm_isnui(client_sk, sizeof(cfrp_sock_t))) {
     cfrp_event_t ev;
     ev.entry.sk = client_sk;
-    cfrp_epoll_add(frp->epoll, &ev);
+    cfrp_epoll_add(frp->epoll_share, &ev);
   }
-  if (cfrp_epoll_wait(frp->epoll, events, 10, 20000) < 0) {
+
+  if (cfrp_epoll_wait(frp->epoll_share, events, 10, 1000) < 0) {
     log_error("accepting connection events error");
   };
+
   list_foreach_entry(event, &events->list, list) {
     if (event->events & CFRP_EVENT_IN) {
-      if (event->type == CFRP_CHANNEL) {
-        log_debug("recv channel message...");
+      if (event->entry.sk == client_sk) {
+        log_info("has client message");
       } else {
-        if (event->entry.sk == client_sk) {
-          log_info("has client message");
-        } else {
-          cfrp_server_handler_accept(frp, event->entry.sk, wk); // 处理连接事件
-        }
+        cfrp_server_handler_accept(frp, event->entry.sk); // 处理连接事件
       }
     } else if (event->events & CFRO_EVENT_ERR) {
     }
   }
-  cfrp_epoll_clear(frp->epoll); // 清空所有事件集
+
+  cfrp_epoll_clear(frp->epoll_share); // 清空所有事件集
 }
 
-static void cfrp_handler_event(cfrp_worker_t *wk) {
-  sleep(1);
+static void cfrp_handler_event(cfrp_t *frp) {
+  cfrp_event_t events[10], *event;
+
+  if (cfrp_epoll_wait(frp->epoll_private, events, 10, 1000) < 0) {
+    log_error("epoll error!");
+  }
+
+  list_foreach_entry(event, &events->list, list) {
+    if (event->events & CFRP_EVENT_IN) {
+      if (event->type == CFRP_CHANNEL) {
+        cfrp_channel_event_handler(frp, event->entry.channel);
+      } else if (event->type == CFRP_SOCK) {
+        log_debug("handler  message")
+      } else {
+        log_warning("bad sock ");
+        cfrp_epoll_del(frp->epoll_share, event);
+      }
+    } else if (event->events & CFRO_EVENT_ERR) {
+    }
+  }
 }
 
-static void cfrp_server_process_handler(cfrp_worker_t *wk) {
-  cfrp_t *frp = (cfrp_t *)wk->ctx;
+static void cfrp_server_process_handler(cfrp_t *frp) {
+
   LOOP {
-    cfrp_mutex(frp, wk, cfrp_server_accept_or_rw);
-    cfrp_handler_event(wk);
+    cfrp_mutex(frp, cfrp_server_accept_and_read_and_wirte);
+    cfrp_handler_event(frp);
   }
 }
 
@@ -191,24 +238,33 @@ static void init_cfrp_server(struct cfrp *frp) {
   list_add(&ev->list, &fs->sock_accept.list);
 }
 
-static void cfrp_server_print_info(struct cfrp *frp) {
-  cfrp_mapping_t *mp;
-  cfrp_server_t *fs = (cfrp_server_t *)frp->entry;
+static void cfrp_display_info(struct cfrp *frp) {
+  cfrp_mapping_t *mapping;
+  cfrp_worker_t *worker;
+  cfrp_channel_t *channel;
+  cfrp_server_t *server = (cfrp_server_t *)frp->entry;
 
-  log_info("listen [::%d]", fs->sock_pair->port);
+  log_info("cfrp listen [::%d]", server->sock_pair->port);
 
-  list_foreach_entry(mp, &frp->mappings.list, list) {
-    log_info("mapping listen [::%d]", mp->port);
+  list_foreach_entry(mapping, &frp->mappings.list, list) {
+    log_info("mapping listen [::%d]", mapping->port);
   }
+
+  list_foreach_entry(worker, &frp->workers.list, list) {
+    channel = &frp->channels[worker->channel_solt];
+    log_info("worker proc running %s[%d] cfrp.channels[%d] -- %d", frp->name, worker->pid, channel->slot, channel->fd);
+  }
+
+  cfrp_unlock(frp->lock);
 }
 
 static int cfrp_server_start(struct cfrp *frp) {
   log_info("start the server");
-  init_cfrp_server(frp);
-  cfrp_start_worker_process(frp, cfrp_cpu, cfrp_server_process_handler);
-  cfrp_server_print_info(frp);
-  log_info("the server started successfully");
 
+  init_cfrp_server(frp);
+  cfrp_force_lock(frp->lock);
+  cfrp_start_worker_process(frp, cfrp_cpu, cfrp_server_process_handler, cfrp_display_info);
+  log_info("the server started successfully");
   LOOP {
     sleep(1);
   }
@@ -266,20 +322,19 @@ static int cfrp_server_mapping_init(struct sock_event *event_head, struct cfrp_m
   return !err;
 }
 
-cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv) {
-  cfrps_t *frps         = cfrp_malloc(sizeof(cfrps_t));
-  cfrp_t *frp           = cfrp_malloc(sizeof(cfrp_t));
-  cfrp_server_t *server = cfrp_malloc(sizeof(cfrp_server_t));
-  cfrp_shm_t *shm       = make_cshm(cfrp_shm_size());
-  cfrp_sock_t *msk      = make_tcp(port, bind_addr);
-  cfrp_epoll_t *epoll   = cfrp_epoll_create();
+cfrps_t *make_cfrps(char *bind_addr, cfrp_uint_t port, struct cfrp_mapping *mappings, int argc, char **argv) {
+
+  cfrp_mapping_t *mapping_entry, *mapping;
+
+  cfrps_t *frps               = cfrp_malloc(sizeof(cfrps_t));
+  cfrp_t *frp                 = cfrp_malloc(sizeof(cfrp_t));
+  cfrp_server_t *server       = cfrp_malloc(sizeof(cfrp_server_t));
+  cfrp_shm_t *shm             = make_cshm(cfrp_shm_size());
+  cfrp_sock_t *sock           = make_tcp(port, bind_addr);
+  cfrp_epoll_t *epoll_share   = cfrp_epoll_create();
+  cfrp_epoll_t *epoll_private = cfrp_epoll_create();
 
   int err = 0;
-
-  if (sock_port_reuse(msk, 1) < 0) {
-    err = 0;
-    log_error("sock reuse port error");
-  }
 
   __null__(frps) {
     log_error("cfrps malloc failure!");
@@ -291,13 +346,13 @@ cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, i
     err = 1;
   }
 
-  __null__(msk) {
-    log_error("cfrps tcp create failure! %s", SYS_ERROR);
+  __null__(sock) {
+    log_error("cfrps tcp create failure! %s", CFRP_SYS_ERROR);
     err = 1;
   }
 
   __null__(shm) {
-    log_error("cfrps share memory create failure! %s", SYS_ERROR);
+    log_error("cfrps share memory create failure! %s", CFRP_SYS_ERROR);
     err = 1;
   }
 
@@ -306,9 +361,19 @@ cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, i
     err = 1;
   }
 
-  __null__(epoll) {
-    log_error("cfrps epoll create failure!");
+  __null__(epoll_share) {
+    log_error("cfrps share epoll create failure!");
     err = 1;
+  }
+
+  __null__(epoll_private) {
+    log_error("cfrps private epoll create failure!");
+    err = 1;
+  }
+
+  if (sock_port_reuse(sock, 1) < 0) {
+    err = 0;
+    log_error("sock reuse port error");
   }
 
   INIT_LIST_HEAD(&server->sock_accept.list);
@@ -316,35 +381,40 @@ cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, i
   if (err || !cfrp_server_mapping_init(&server->sock_accept, mappings)) {
     cfrp_free(frp);
     cfrp_free(frps);
-    sock_close(msk);
+    sock_close(sock);
     cshm_release(shm);
-    cfrp_epoll_close(epoll);
+    cfrp_epoll_close(epoll_share);
+    cfrp_epoll_clear(epoll_private);
     return NULL;
   }
 
-  server->sock_pair = cshm_alloc(shm, sizeof(cfrp_sock_t) * 2);
-  cfrp_memcpy(server->sock_pair, msk, sizeof(cfrp_sock_t));
-  cfrp_free(msk);
+  server->sock_pair     = cshm_alloc(shm, sizeof(cfrp_sock_t) * 2);
+  server->wcounter      = cshm_alloc(shm, sizeof(cfrp_counter_t));
+  server->wait_sessions = cshm_alloc(shm, sizeof(cfrp_session_t) * CFRP_MAX_WAIT_CONN_NUM);
+  server->ctx           = frp;
 
-  server->wcounter      = cshm_alloc(shm, sizeof(struct cfrp_counter));
-  server->wait_sessions = cshm_alloc(shm, sizeof(struct cfrp_session) * CFRP_MAX_WAIT_CONN_NUM);
-  frp->lock             = cshm_alloc(shm, sizeof(struct cfrp_lock));
-  frp->ctx              = frps;
-  frp->entry            = server;
-  frp->epoll            = epoll;
+  cfrp_memcpy(server->sock_pair, sock, sizeof(cfrp_sock_t));
+
+  cfrp_free(sock);
+
+  frp->name          = argv[0];
+  frp->lock          = cshm_alloc(shm, sizeof(cfrp_lock_t));
+  frp->ctx           = frps;
+  frp->entry         = server;
+  frp->epoll_share   = epoll_share;
+  frp->epoll_private = epoll_private;
+  frp->worker        = NULL;
+  frp->channel       = NULL;
 
   INIT_LIST_HEAD(&frp->mappings.list);
   INIT_LIST_HEAD(&server->wait_sessions->list);
 
-  cfrp_mapping_t *entry, *mp;
-
-  list_foreach_entry(entry, &mappings->list, list) {
-    mp = cfrp_malloc(sizeof(cfrp_mapping_t));
-    cfrp_memcpy(mp, entry, sizeof(cfrp_mapping_t));
-    list_add(&mp->list, &frp->mappings.list);
+  list_foreach_entry(mapping_entry, &mappings->list, list) {
+    mapping = cfrp_malloc(sizeof(cfrp_mapping_t));
+    cfrp_memcpy(mapping, mapping_entry, sizeof(cfrp_mapping_t));
+    list_add(&mapping->list, &frp->mappings.list);
   }
 
-  // cfrp context
   frps->frp = frp;
   frps->pid = getpid();
   frps->op  = &server_operating;

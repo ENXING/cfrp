@@ -12,7 +12,7 @@
 #include "stream.h"
 #include "types.h"
 
-typedef struct sock cfrp_sock_t;
+typedef struct cfrp_sock cfrp_sock_t;
 
 #define __check_sock_op__(sk)                                                                                                                        \
   if (check_sock_op(sk) != C_SUCCESS)                                                                                                                \
@@ -24,7 +24,7 @@ static inline int check_sock_op(cfrp_sock_t *sk) {
   return C_SUCCESS;
 }
 
-static struct sock *get_sock(int fd, uint port, char *host) {
+static struct cfrp_sock *get_sock(int fd, uint port, char *host) {
   cfrp_sock_t *sk = cfrp_malloc(sizeof(cfrp_sock_t));
   sk->fd = fd;
   sk->port = port;
@@ -34,42 +34,42 @@ static struct sock *get_sock(int fd, uint port, char *host) {
   return sk;
 }
 
-struct sock *make_tcp(uint port, char *bind_addr) {
+struct cfrp_sock *make_tcp(uint port, char *bind_addr) {
   int fd;
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    log_error("make tcp error! msg: %s", port, SYS_ERROR);
+    log_error("make tcp error! msg: %s", port, CFRP_SYS_ERROR);
     return NULL;
   }
   struct sockaddr_in addr = SOCK_ADDR_IN(port, bind_addr);
   socklen_t len = sizeof(struct sockaddr);
   if (bind(fd, (struct sockaddr *)&addr, len) < 0) {
-    log_error("make tcp bind error! %s:%d, msg: %s", bind_addr, port, SYS_ERROR);
+    log_error("make tcp bind error! %s:%d, msg: %s", bind_addr, port, CFRP_SYS_ERROR);
     return NULL;
   }
 
   if (listen(fd, SOCK_LISTEN_NUM) < 0) {
     return NULL;
   }
-  struct sock *sk = get_sock(fd, port, bind_addr);
+  struct cfrp_sock *sk = get_sock(fd, port, bind_addr);
   log_debug("make tcp success! %s:%d#%d", bind_addr, port, fd);
   return sk;
 }
 
-struct sock *make_udp(uint port, char *bind_addr) {
+struct cfrp_sock *make_udp(uint port, char *bind_addr) {
 
   return NULL;
 }
 
-struct sock *make_tcp_connect(uint port, char *host) {
+struct cfrp_sock *make_tcp_connect(uint port, char *host) {
   int fd;
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    log_error("connect to %s:%d failure, msg: %s", host, port, SYS_ERROR);
+    log_error("connect to %s:%d failure, msg: %s", host, port, CFRP_SYS_ERROR);
     return NULL;
   }
   struct sockaddr_in addr = SOCK_ADDR_IN(port, host);
   socklen_t len = sizeof(struct sockaddr);
   if (connect(fd, (struct sockaddr *)&addr, len) < 0) {
-    log_error("connect to %s:%d failure, msg: %s", host, port, SYS_ERROR);
+    log_error("connect to %s:%d failure, msg: %s", host, port, CFRP_SYS_ERROR);
     return NULL;
   }
   cfrp_sock_t *sk = get_sock(fd, port, host);
@@ -77,7 +77,7 @@ struct sock *make_tcp_connect(uint port, char *host) {
   return sk;
 }
 
-struct sock *make_udp_connect(uint port, char *host) {
+struct cfrp_sock *make_udp_connect(uint port, char *host) {
   return NULL;
 }
 
@@ -90,12 +90,12 @@ int set_noblocking(int fd) {
   return C_SUCCESS;
 }
 
-struct sock *sock_accept(struct sock *sk) {
+struct cfrp_sock *sock_accept(struct cfrp_sock *sk) {
   struct sockaddr_in addr;
   socklen_t len = sizeof(addr);
   int fd;
   if ((fd = accept(sk->fd, (struct sockaddr *)&addr, &len)) < 0) {
-    log_error("accpet connect error! %s:%d#%d, msg: %s", sk->host, sk->port, sk->fd, SYS_ERROR);
+    log_error("accpet connect error! %s:%d#%d, msg: %s", sk->host, sk->port, sk->fd, CFRP_SYS_ERROR);
     return NULL;
   }
   cfrp_sock_t *connect_sk = get_sock(fd, ntohs(addr.sin_port), inet_ntoa(addr.sin_addr));
@@ -103,25 +103,25 @@ struct sock *sock_accept(struct sock *sk) {
   return connect_sk;
 }
 
-int sock_send(struct sock *sk, void *bytes, size_t size) {
+int sock_send(struct cfrp_sock *sk, void *bytes, size_t size) {
   __check_sock_op__(sk);
   __non_null__(sk->op->send, C_ERROR);
   return sk->op->send(sk, bytes, size);
 }
 
-int sock_recv(struct sock *sk, void *buff, size_t buff_size) {
+int sock_recv(struct cfrp_sock *sk, void *buff, size_t buff_size) {
   __check_sock_op__(sk);
   __non_null__(sk->op->recv, C_ERROR);
   return sk->op->recv(sk, buff, buff_size);
 }
 
-int sock_flush(struct sock *sk) {
+int sock_flush(struct cfrp_sock *sk) {
   __check_sock_op__(sk);
   __non_null__(sk->op->flush, C_ERROR);
   return sk->op->flush(sk);
 }
 
-int sock_close(struct sock *sk) {
+int sock_close(struct cfrp_sock *sk) {
   __check_sock_op__(sk);
   __non_null__(sk->op->close, C_ERROR);
   return sk->op->close(sk);
@@ -130,12 +130,12 @@ int sock_close(struct sock *sk) {
 /**
  * 非阻塞 IO
  */
-extern int sock_noblocking(struct sock *sk) {
+extern int sock_noblocking(struct cfrp_sock *sk) {
   __non_null__(sk, C_ERROR);
   return set_noblocking(sk->fd);
 }
 
-static inline int set_sock_timeout(struct sock *sk, int timeout, int flag) {
+static inline int set_sock_timeout(struct cfrp_sock *sk, int timeout, int flag) {
   struct timeval tm = {.tv_sec = timeout, .tv_usec = 0};
   return setsockopt(sk->fd, SOL_SOCKET, flag, &tm, sizeof(struct timeval));
 }
@@ -143,7 +143,7 @@ static inline int set_sock_timeout(struct sock *sk, int timeout, int flag) {
 /**
  * 读取超时时间
  */
-extern int sock_recv_timeout(struct sock *sk, int timeout) {
+extern int sock_recv_timeout(struct cfrp_sock *sk, int timeout) {
   __non_null__(sk, C_ERROR);
   return set_sock_timeout(sk, timeout, SO_RCVTIMEO);
 }
@@ -151,7 +151,7 @@ extern int sock_recv_timeout(struct sock *sk, int timeout) {
 /**
  * 写入超时时间
  */
-extern int sock_send_timeout(struct sock *sk, int timeout) {
+extern int sock_send_timeout(struct cfrp_sock *sk, int timeout) {
   __non_null__(sk, C_ERROR);
   return set_sock_timeout(sk, timeout, SO_SNDTIMEO);
 }
@@ -159,7 +159,7 @@ extern int sock_send_timeout(struct sock *sk, int timeout) {
 /**
  * 端口复用
  */
-extern int sock_port_reuse(struct sock *sk, int val) {
+extern int sock_port_reuse(struct cfrp_sock *sk, int val) {
   __non_null__(sk, C_ERROR);
   return setsockopt(sk->fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
 }

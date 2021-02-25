@@ -25,18 +25,18 @@ static int __bmalloc(struct buffer *buf, int size) {
   size_t total_size = 0;
   if (!size && !buf->bytes) {
     total_size = buf->total_size;
-    tmp = cfrp_malloc(sizeof(char) * buf->total_size);
+    tmp        = cfrp_malloc(sizeof(char) * buf->total_size);
     memset(tmp, '\0', buf->total_size);
   } else if (!size && buf->total_size == buf->use_size) {
     total_size = buf->total_size * 2;
-    tmp = cfrp_realloc(buf->bytes, total_size);
+    tmp        = cfrp_realloc(buf->bytes, total_size);
   } else if (size > 0) {
     total_size = buf->total_size + size;
-    tmp = cfrp_realloc(buf->bytes, size);
+    tmp        = cfrp_realloc(buf->bytes, size);
   }
   if (!tmp)
     return 0;
-  buf->bytes = tmp;
+  buf->bytes      = tmp;
   buf->total_size = total_size;
   return C_SUCCESS;
 }
@@ -46,8 +46,7 @@ struct buffer *make_buffer(size_t size) {
   if (!buf)
     return NULL;
   buf->total_size = buf->init_size = size;
-  buf->use_size = 0;
-  buf->scope = C_SCOPE_HEAP;
+  buf->use_size                    = 0;
   if (!__bmalloc(buf, 0)) {
     cfrp_free(buf);
     return NULL;
@@ -112,8 +111,7 @@ int buffer_free(struct buffer *buf) {
   CHECK_NULL(buf)
   cfrp_free(buf->bytes);
   buf->bytes = NULL;
-  if (buf->scope == C_SCOPE_HEAP)
-    cfrp_free(buf);
+  cfrp_free(buf);
   return C_SUCCESS;
 }
 

@@ -12,12 +12,7 @@ int cfrp_sadd(struct cfrp_session *slist, struct cfrp_session *session) {
 
 struct cfrp_session *cfrp_sget(struct cfrp_session *slist, char *sid) {
   struct list_head *entry;
-  struct cfrp_session *sn;
-  list_foreach(entry, &slist->list) {
-    sn = list_entry(entry, struct cfrp_session, list);
-    if (strcmp(sn->sid, sid) == 0)
-      return sn;
-  }
+  struct cfrp_session *sn; 
   return NULL;
 }
 

@@ -29,11 +29,11 @@ struct cfrp_protocol {
   // 本次会话id
   char sid[SID_LEN];
   // 转发到的端口
-  uint mapping_port;
+  cfrp_uint_t mapping_port;
   // 校验类型
   char verify_type;
   // 校验长度
-  uint8 verify_len;
+  cfrp_uint8_t verify_len;
   // 数据包信息, 实际大小信息
   struct {
     // 数据包类型
@@ -48,8 +48,22 @@ struct cfrp_protocol {
 
 struct cfrp_channel {
   int fd;
-  int command;
   int slot;
+  int pid;
+  int cmd;
+};
+
+/**
+ *
+ * channel msg
+ */
+struct cfrp_cmsg {
+  int cmd;
+  int fd;
+  union {
+    struct cfrp_channel channel;
+    struct cfrp_sock sock;
+  } data;
 };
 
 /**
@@ -67,7 +81,7 @@ struct cfrp_payload {
  */
 struct cfrp_mapping {
   char *addr;
-  uint port;
+  cfrp_uint_t port;
   struct list_head list;
 };
 
@@ -75,20 +89,14 @@ struct cfrp_mapping {
  * 会话信息
  */
 struct cfrp_session {
-  char sid[SID_LEN];
-  // 目标
-  struct sock *sk_desc;
-  // 源
-  struct sock *sk_src;
-  void *ptr;
-  // 会话所在worker
-  void *woker;
+  struct cfrp_sock *sk_desc;
+  struct cfrp_sock *sk_src;
   struct list_head list;
 };
 
 struct sock_event {
   union {
-    struct sock *sk;
+    struct cfrp_sock *sk;
     struct cfrp_channel *channel;
   } entry;
   int type; // channel or sock
@@ -118,13 +126,11 @@ struct cfrp_counter {
 };
 
 struct cfrp_worker {
-  int pid;
-  struct cfrp_session sessions;
+  cfrp_uint_t pid;
+  cfrp_uint_t counter;
+  cfrp_uint_t channel_solt;
   struct list_head list;
   void *ctx;
-  uint counter;
-  struct cfrp_channel *chnnel;
-  struct worker_operating *op;
 };
 
 struct cfrp_lock {
@@ -135,38 +141,49 @@ struct cfrp_lock {
 };
 
 struct cfrp_server {
-  struct sock *sock_pair;
+  struct cfrp_sock *sock_pair;        // 一对cfrp_sock 表一个服务端 一个客户端
   struct sock_event sock_accept;      // 接受连接事件
   struct cfrp_counter *wcounter;      // 等待会话计数器
   struct cfrp_session *wait_sessions; // 等待 session
+  void *ctx;                          // cfrp信息
 };
 
 struct cfrp_client {
   char *host;                 // 服务端主机地址
   int port;                   // 服务端端口
-  struct sock *csk;           // 客户端通讯的sock,
+  struct cfrp_sock *csk;      // 客户端通讯的sock,
   struct sock_event event_rw; // 读写事件
 };
 
 struct cfrp {
+  // 名称
+  cfrp_name name;
+  // woker数量
+  cfrp_uint_t worker_num;
   // 映射信息
   struct cfrp_mapping mappings;
-  // 子进程数量
-  uint woker_num;
   // 所有子进程
-  struct cfrp_worker wokers;
+  struct cfrp_worker workers;
   // channel event
   struct sock_event channel_event;
+  // 会话信息
+  struct cfrp_session session;
   // 全局共享锁
   struct cfrp_lock *lock;
   // 进程间通讯
   struct cfrp_channel *channels;
-  // 多路复用
-  struct cfrp_epoll *epoll;
+  // 共享 epoll
+  struct cfrp_epoll *epoll_share;
+  // 私有 epoll
+  struct cfrp_epoll *epoll_private;
+  // 子进程的 woker 父进程是 NULL
+  struct cfrp_worker *worker;
+  // 子进程的 channel 父进程是 NULL
+  struct cfrp_channel *channel;
+  // 共享内存
+  struct cfrp_shm *shm;
   // 服务端或客户端实体
   void *entry;
-  // 共享内存
-  void *shm;
   // 上下文
   void *ctx;
 };
@@ -194,9 +211,9 @@ struct cfrp_context {
 typedef struct cfrp_context cfrps_t;
 typedef struct cfrp_context cfrpc_t;
 
-extern cfrps_t *make_cfrps(char *bind_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
+extern cfrps_t *make_cfrps(char *bind_addr, cfrp_uint_t port, struct cfrp_mapping *mappings, int argc, char **argv);
 
-extern cfrpc_t *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv);
+extern cfrpc_t *make_cfrpc(char *client_addr, cfrp_uint_t port, struct cfrp_mapping *mappings, int argc, char **argv);
 
 /**
  * 启动
@@ -224,7 +241,7 @@ typedef struct cfrp_worker cfrp_worker_t;
 typedef struct cfrp cfrp_t;
 typedef struct cfrp_mapping cfrp_mapping_t;
 typedef struct cfrp_session cfrp_session_t;
-typedef struct sock cfrp_sock_t;
+typedef struct cfrp_sock cfrp_sock_t;
 typedef struct cfrp_context cfrp_ctx_t;
 typedef struct cfrp_server cfrp_server_t;
 typedef struct cfrp_client cfrp_client_t;
@@ -236,4 +253,5 @@ typedef struct cfrp_lock cfrp_lock_t;
 typedef struct stream_operating cfrp_stream_t;
 typedef struct list_head cfrp_list_t;
 typedef struct cfrp_epoll cfrp_epoll_t;
+typedef struct cfrp_cmsg cfrp_cmsg_t;
 #endif

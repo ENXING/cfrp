@@ -12,8 +12,6 @@ struct buffer {
   size_t total_size;
   // 已使用
   size_t use_size;
-  // buffer 内存分配位置 stack heap
-  scope_t scope;
   // 数据
   char *bytes;
 };

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define SYS_ERROR strerror(errno)
+#define CFRP_SYS_ERROR strerror(errno)
 
 #define C_ERROR 0
 #define C_SUCCESS 1
@@ -14,7 +14,8 @@
 #define NULL ((void *)0)
 #endif
 
-typedef char scope_t;
-typedef unsigned int uint;
-typedef unsigned long ulong;
-typedef unsigned char uint8;
+typedef unsigned int cfrp_uint_t;
+typedef unsigned long cfrp_ulong_t;
+typedef unsigned char cfrp_uint8_t;
+typedef unsigned long int cfrp_size_t;
+typedef char *cfrp_name;

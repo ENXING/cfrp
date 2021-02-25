@@ -4,18 +4,19 @@
 #include <unistd.h>
 
 #include "cfrp.h"
+#include "config.h"
 
 #define CFRP_CMD_NUI -1
 #define CFRP_CMD_OPEN_CHANNEL 1
 #define CFRP_CMD_EXIT 2
 
-#define CFRP_HAVE_MSGHDR_MSG_CONTROL
+typedef void (*cfrp_woker_proc_t)(cfrp_t *frp);
 
-typedef void (*cfrp_woker_proc)(cfrp_worker_t *wk);
+typedef void (*cfrp_complete_t)(cfrp_t *frp);
 
-extern void cfrp_start_worker_process(struct cfrp *frp, int num, cfrp_woker_proc proc);
+extern void cfrp_start_worker_process(struct cfrp *frp, int num, cfrp_woker_proc_t proc, cfrp_complete_t complete);
 
-extern void cfrp_spawn(struct cfrp *frp, int i, cfrp_woker_proc proc);
+extern void cfrp_spawn(struct cfrp *frp, int i, cfrp_woker_proc_t proc);
 
 extern int cfrp_channel_close(int fd);
 
@@ -30,8 +31,10 @@ extern int cfrp_channel_event_add(struct cfrp *frp, struct cfrp_channel *ch);
 
 extern int cfrp_channel_event_del(struct cfrp *frp, struct cfrp_channel *ch);
 
-extern int cfrp_channel_send(int fd, struct cfrp_channel *ch, size_t size);
+// extern int cfrp_channel_send(int fd, struct cfrp_channel *ch, size_t size);
 
-extern int cfrp_channel_recv(int fd, struct cfrp_channel *ch, size_t size);
+// extern int cfrp_channel_recv(int fd, struct cfrp_channel *ch, size_t size);
+
+extern int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch);
 
 #endif

@@ -40,24 +40,23 @@ static void cfrp_client_check_connect(cfrp_client_t *fc) {
   }
 }
 
-static void cfrp_client_main_connect_rw(struct cfrp *frp, cfrp_worker_t *wk) {
+static void cfrp_client_main_connect_rw(struct cfrp *frp) {
   log_debug("wait server message");
   cfrp_client_t *fc = (cfrp_client_t *)frp->entry;
   cfrp_client_check_connect(fc);
   sleep(5);
 };
 
-static void cfrp_client_process_handler(cfrp_worker_t *wk) {
-  cfrp_t *frp = (cfrp_t *)wk->ctx;
+static void cfrp_client_process_handler(struct cfrp *frp) {
   LOOP {
-    cfrp_mutex(frp, wk, cfrp_client_main_connect_rw);
+    cfrp_mutex(frp, cfrp_client_main_connect_rw);
     sleep(1);
   }
-};
+}
 
 static int cfrp_client_start(struct cfrp *frp) {
   log_info("start the client");
-  cfrp_start_worker_process(frp, cfrp_cpu, cfrp_client_process_handler);
+  cfrp_start_worker_process(frp, cfrp_cpu, cfrp_client_process_handler, NULL);
   log_info("the client started successfully");
   LOOP {
     sleep(1);
@@ -80,7 +79,7 @@ static int cfrp_client_reload(struct cfrp *frp) {
 static struct cfrp_operating client_operating = {
     .start = cfrp_client_start, .stop = cfrp_client_stop, .reload = cfrp_client_reload, .restart = cfrp_client_restart};
 
-cfrpc_t *make_cfrpc(char *client_addr, uint port, struct cfrp_mapping *mappings, int argc, char **argv) {
+cfrpc_t *make_cfrpc(char *client_addr, cfrp_uint_t port, struct cfrp_mapping *mappings, int argc, char **argv) {
   cfrpc_t *frpc        = (cfrpc_t *)cfrp_malloc(sizeof(cfrpc_t));
   cfrp_t *frp          = (struct cfrp *)cfrp_malloc(sizeof(cfrp_t));
   cfrp_client_t *entry = (cfrp_client_t *)cfrp_malloc(sizeof(cfrp_client_t));

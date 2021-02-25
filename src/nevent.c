@@ -37,7 +37,7 @@ struct cfrp_epoll *cfrp_epoll_create() {
 }
 
 extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_events, int max_event, int timeout) {
-  log_debug("wait for a sock event");
+  log_debug("wait for a sock event [%d] by max event %d  timeout %dm", epoll->efd, max_event, timeout);
 
   struct epoll_event events[max_event + 1], *ev;
   struct sock_event *sev;
@@ -46,7 +46,7 @@ extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_event
   INIT_LIST_HEAD(&sk_events->list);
 
   if ((num = epoll_wait(epoll->efd, events, max_event, timeout)) < 0) {
-    log_error("epoll wait error: %s", SYS_ERROR);
+    log_error("epoll wait error: %s", CFRP_SYS_ERROR);
     return C_ERROR;
   }
 
@@ -91,10 +91,10 @@ int cfrp_epoll_add(struct cfrp_epoll *epoll, struct sock_event *event) {
 
   if (event->type == CFRP_SOCK) {
     sk = event->entry.sk;
-    log_debug("listen for a sock event. %s:%d#%d", sk->host, sk->port, sk->fd);
+    log_debug("listen for a sock event. [%d] %s:%d#%d", epoll->efd, sk->host, sk->port, sk->fd);
   } else if (event->type == CFRP_CHANNEL) {
     channel = event->entry.channel;
-    log_debug("listen for a channel event. -- %d", channel->fd)
+    log_debug("listen for a channel event. [%d] -- %d", epoll->efd, channel->fd)
   } else {
     cfrp_free(sk_event);
     return C_ERROR;
@@ -140,7 +140,7 @@ int cfrp_epoll_clear(struct cfrp_epoll *epoll) {
     ev = list_entry(entry, struct sock_event, list);
     fd = cfrp_epoll_get_fd(ev);
     if (epoll_ctl(epoll->efd, EPOLL_CTL_DEL, fd, NULL) < 0) {
-      log_error("del sock event error ---[%d], msg: %s", fd, SYS_ERROR);
+      log_error("del sock event error ---[%d], msg: %s", fd, CFRP_SYS_ERROR);
     }
     list_del(ev->list.prev, ev->list.next);
     cfrp_free(ev);
