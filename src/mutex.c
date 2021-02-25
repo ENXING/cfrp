@@ -23,7 +23,7 @@ void cfrp_mutex(struct cfrp *frp, mutex_sync sync_exec) {
 
   if (cfrp_try_lock(frp->lock)) {
 
-    log_debug("cfrp acquire %d", frp->name);
+    log_debug("cfrp acquire %s", frp->name);
 
     ftime start_tm, end_tm;
 
@@ -39,6 +39,6 @@ void cfrp_mutex(struct cfrp *frp, mutex_sync sync_exec) {
 
     cfrp_unlock(frp->lock);
 
-    log_debug("cfrp release %d", frp->name);
+    log_debug("cfrp release %s", frp->name);
   }
 }

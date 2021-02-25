@@ -24,24 +24,30 @@ static inline int check_sock_op(cfrp_sock_t *sk) {
   return C_SUCCESS;
 }
 
-static struct cfrp_sock *get_sock(int fd, uint port, char *host) {
+static struct cfrp_sock *get_sock(int fd, cfrp_uint_t port, char *host) {
   cfrp_sock_t *sk = cfrp_malloc(sizeof(cfrp_sock_t));
-  sk->fd = fd;
-  sk->port = port;
-  sk->host = host;
-  sk->type = AF_INET;
+  sk->fd          = fd;
+  sk->port        = port;
+  sk->host        = host;
+  sk->type        = AF_INET;
   stream_base(sk);
   return sk;
 }
 
-struct cfrp_sock *make_tcp(uint port, char *bind_addr) {
-  int fd;
-  if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+static inline int reuse_port(int fd, int *val) {
+  return setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)val, sizeof(int));
+};
+
+struct cfrp_sock *make_tcp(cfrp_uint_t port, char *bind_addr) {
+  int fd, reuse = 1;
+  if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0 || reuse_port(fd, &reuse) < 0) {
     log_error("make tcp error! msg: %s", port, CFRP_SYS_ERROR);
     return NULL;
   }
+
   struct sockaddr_in addr = SOCK_ADDR_IN(port, bind_addr);
-  socklen_t len = sizeof(struct sockaddr);
+  socklen_t len           = sizeof(struct sockaddr);
+
   if (bind(fd, (struct sockaddr *)&addr, len) < 0) {
     log_error("make tcp bind error! %s:%d, msg: %s", bind_addr, port, CFRP_SYS_ERROR);
     return NULL;
@@ -55,19 +61,19 @@ struct cfrp_sock *make_tcp(uint port, char *bind_addr) {
   return sk;
 }
 
-struct cfrp_sock *make_udp(uint port, char *bind_addr) {
+struct cfrp_sock *make_udp(cfrp_uint_t port, char *bind_addr) {
 
   return NULL;
 }
 
-struct cfrp_sock *make_tcp_connect(uint port, char *host) {
+struct cfrp_sock *make_tcp_connect(cfrp_uint_t port, char *host) {
   int fd;
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     log_error("connect to %s:%d failure, msg: %s", host, port, CFRP_SYS_ERROR);
     return NULL;
   }
   struct sockaddr_in addr = SOCK_ADDR_IN(port, host);
-  socklen_t len = sizeof(struct sockaddr);
+  socklen_t len           = sizeof(struct sockaddr);
   if (connect(fd, (struct sockaddr *)&addr, len) < 0) {
     log_error("connect to %s:%d failure, msg: %s", host, port, CFRP_SYS_ERROR);
     return NULL;
@@ -77,14 +83,14 @@ struct cfrp_sock *make_tcp_connect(uint port, char *host) {
   return sk;
 }
 
-struct cfrp_sock *make_udp_connect(uint port, char *host) {
+struct cfrp_sock *make_udp_connect(cfrp_uint_t port, char *host) {
   return NULL;
 }
 
 int set_noblocking(int fd) {
   int flag = fcntl(fd, F_GETFL);
   if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
-    log_error("set no blocking failure!");
+    log_error("set no blocking failure. msg: %s", CFRP_SYS_ERROR);
     return C_ERROR;
   }
   return C_SUCCESS;
@@ -159,7 +165,7 @@ extern int sock_send_timeout(struct cfrp_sock *sk, int timeout) {
 /**
  * 端口复用
  */
-extern int sock_port_reuse(struct cfrp_sock *sk, int val) {
+extern int sock_port_reuse(struct cfrp_sock *sk, int *val) {
   __non_null__(sk, C_ERROR);
-  return setsockopt(sk->fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
+  return reuse_port(sk->fd, val);
 }

@@ -7,3 +7,4 @@ AllowShortFunctionsOnASingleLine: false
 BreakStringLiterals: false
 PointerAlignment: Right
 MaxEmptyLinesToKeep: 1
+IndentCaseLabels: true

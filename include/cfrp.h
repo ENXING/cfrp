@@ -141,11 +141,10 @@ struct cfrp_lock {
 };
 
 struct cfrp_server {
-  struct cfrp_sock *sock_pair;        // 一对cfrp_sock 表一个服务端 一个客户端
-  struct sock_event sock_accept;      // 接受连接事件
-  struct cfrp_counter *wcounter;      // 等待会话计数器
-  struct cfrp_session *wait_sessions; // 等待 session
-  void *ctx;                          // cfrp信息
+  struct cfrp_sock sock_pair[2];     // 一对cfrp_sock 表一个服务端 一个客户端
+  struct sock_event sock_accept;     // 接受连接事件
+  struct cfrp_session wait_sessions; // 等待 session
+  void *ctx;                         // cfrp信息
 };
 
 struct cfrp_client {
@@ -158,7 +157,7 @@ struct cfrp_client {
 struct cfrp {
   // 名称
   cfrp_name name;
-  // woker数量
+  // worker数量
   cfrp_uint_t worker_num;
   // 映射信息
   struct cfrp_mapping mappings;

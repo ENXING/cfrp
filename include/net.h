@@ -72,7 +72,7 @@ extern int sock_send_timeout(struct cfrp_sock *sk, int timeout);
 /**
  * 端口复用
  */
-extern int sock_port_reuse(struct cfrp_sock *sk, int val);
+extern int sock_port_reuse(struct cfrp_sock *sk, int *val);
 
 typedef struct cfrp_sock cfrp_sock_t;
 

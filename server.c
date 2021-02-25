@@ -8,7 +8,7 @@ extern char **environ;
 
 int main(int argc, char **argv) {
 
-  log_level() = LOGGER_INFO;
+  log_level() = LOGGER_DEBUG;
   cfrp_mapping_t head;
   cfrp_mapping_t mp  = {.addr = "127.0.0.1", .port = 8083};
   cfrp_mapping_t mp2 = {.addr = "127.0.0.1", .port = 8084};

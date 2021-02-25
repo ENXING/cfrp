@@ -48,7 +48,7 @@ extern int cfrp_channel_send(struct cfrp_channel *ch, struct cfrp_cmsg *__msg) {
   msg.msg_iovlen  = 1;
 
   if (sendmsg(ch->fd, &msg, 0) < 0) {
-    log_error("channel send error %s", CFRP_SYS_ERROR);
+    log_error("channel send error --[%d] %d %s ", ch->pid, ch->fd, CFRP_SYS_ERROR);
     return C_ERROR;
   }
   return C_SUCCESS;

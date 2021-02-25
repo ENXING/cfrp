@@ -5,18 +5,18 @@
 #include "nevent.h"
 
 static inline int cfrp_epoll_get_fd(struct sock_event *event) {
-  cfrp_sock_t *sk;
-  cfrp_channel_t *ch;
+  __non_null__(event, C_ERROR);
+
   int fd;
+
   if (event->type == CFRP_SOCK) {
-    sk = event->entry.sk;
-    fd = ch->fd;
+    fd = event->entry.sk->fd;
   } else if (event->type == CFRP_CHANNEL) {
-    ch = event->entry.channel;
-    fd = ch->fd;
+    fd = event->entry.channel->fd;
   } else {
     return C_ERROR;
   }
+
   return fd;
 };
 
@@ -37,7 +37,7 @@ struct cfrp_epoll *cfrp_epoll_create() {
 }
 
 extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_events, int max_event, int timeout) {
-  log_debug("wait for a sock event [%d] by max event %d  timeout %dm", epoll->efd, max_event, timeout);
+  // log_debug("wait for a sock event [%d] by max event %d  timeout %dm", epoll->efd, max_event, timeout);
 
   struct epoll_event events[max_event + 1], *ev;
   struct sock_event *sev;
@@ -119,6 +119,8 @@ int cfrp_epoll_del(struct cfrp_epoll *epoll, struct sock_event *event) {
   int fd = cfrp_epoll_get_fd(event);
   if (fd <= 0)
     return C_ERROR;
+  list_del(event->list.prev, event->list.next);
+  cfrp_free(event);
   return epoll_ctl(epoll->efd, EPOLL_CTL_DEL, fd, NULL);
 }
 
@@ -133,17 +135,13 @@ int cfrp_epoll_close(struct cfrp_epoll *epoll) {
 int cfrp_epoll_clear(struct cfrp_epoll *epoll) {
   __non_null__(epoll, C_ERROR);
   log_debug("clear event set");
-  struct list_head *entry;
-  struct sock_event *ev;
+  struct sock_event *event;
   int fd;
-  list_foreach(entry, &epoll->events.list) {
-    ev = list_entry(entry, struct sock_event, list);
-    fd = cfrp_epoll_get_fd(ev);
-    if (epoll_ctl(epoll->efd, EPOLL_CTL_DEL, fd, NULL) < 0) {
+  list_foreach_entry(event, &epoll->events.list, list) {
+    if (cfrp_epoll_del(epoll, event) < 0) {
+      fd = cfrp_epoll_get_fd(event);
       log_error("del sock event error ---[%d], msg: %s", fd, CFRP_SYS_ERROR);
     }
-    list_del(ev->list.prev, ev->list.next);
-    cfrp_free(ev);
   }
   return C_SUCCESS;
 }

@@ -12,13 +12,15 @@ void cfrp_start_worker_process(struct cfrp *frp, int num, cfrp_woker_proc_t proc
   cfrp_worker_t *wk;
   cfrp_channel_t *ch;
 
+  int slot;
+
   INIT_LIST_HEAD(&frp->workers.list);
   INIT_LIST_HEAD(&frp->channel_event.list);
 
   frp->channels   = (cfrp_channel_t *)cfrp_calloc(num, sizeof(cfrp_channel_t));
   frp->worker_num = num;
 
-  for (int slot = 0; slot < num; slot++) {
+  for (slot = 0; slot < num; slot++) {
     cfrp_spawn(frp, slot, proc);
     ch = &frp->channels[slot];
     cfrp_sync_woker_channel(frp, slot, ch);
@@ -71,9 +73,10 @@ extern void cfrp_spawn(struct cfrp *frp, int slot, cfrp_woker_proc_t woker_proc)
 
     cfrp_epoll_close(frp->epoll_private);
 
-    frp->worker        = worker;
-    frp->channel       = channel;
-    frp->epoll_private = epoll;
+    frp->worker           = worker;
+    frp->channel          = channel;
+    frp->epoll_private    = epoll;
+    frp->epoll_share->pid = getpid();
 
     cfrp_channel_close(fd_1);
     cfrp_channel_event_add(frp, channel);
@@ -149,7 +152,9 @@ extern int cfrp_channel_event_del(struct cfrp *frp, struct cfrp_channel *ch) {
 }
 
 int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
+  cfrp_server_t *server;
   cfrp_channel_t *channel;
+  cfrp_sock_t *sock;
   cfrp_cmsg_t msg;
 
   if (cfrp_channel_recv(ch, &msg) <= 0) {
@@ -157,20 +162,34 @@ int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
     return C_ERROR;
   }
 
-  if (msg.cmd == CFRP_CMD_OPEN_CHANNEL) {
-    channel      = &msg.data.channel;
-    channel->fd  = msg.fd;
-    channel->cmd = CFRP_CMD_NUI;
-    if (frp->channels[channel->slot].slot != 0) {
-      log_debug("proc channel exists");
-      cfrp_channel_close(channel->fd);
-    } else {
-      cfrp_memcmp(&frp->channels[channel->slot], &channel, sizeof(cfrp_channel_t));
+  switch (msg.cmd) {
+    case CFRP_CMD_OPEN_CHANNEL: {
+      channel      = &msg.data.channel;
+      channel->fd  = msg.fd;
+      channel->cmd = CFRP_CMD_NUI;
+      cfrp_memcpy(&frp->channels[channel->slot], channel, sizeof(cfrp_channel_t));
       log_debug("proc channel cfrp.channels[%d] -> %d", channel->slot, channel->fd);
-    }
-  } else {
-    log_debug("sock channel ");
-  }
+    } break;
 
+    case CFRP_CHANNEL_MASOCK:
+    case CFRP_CANNEL_MPSOCK:
+    case CFRP_CHANNEL_CPSOCK:
+    case CFRP_CHANNEL_CLSOCK: {
+      server   = (cfrp_server_t *)frp->entry;
+      sock     = &msg.data.sock;
+      sock->fd = msg.fd;
+      if (msg.cmd == CFRP_CHANNEL_CLSOCK) {
+
+      } else {
+        cfrp_memcpy(cfrp_pair_last(server->sock_pair), sock, sizeof(cfrp_sock_t));
+        log_info("proc channel sock pair %s:%d#%d", sock->host, sock->port, sock->fd);
+      }
+    } break;
+
+    default: {
+      log_warning("proc channel illegal");
+      return C_ERROR;
+    };
+  }
   return C_SUCCESS;
 }
