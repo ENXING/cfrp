@@ -8,10 +8,11 @@
 #define CFRP_PTMAC 0x05  // 建立主连接
 #define CFRP_PTCX 0x06   // 关闭连接
 
-struct cfrp_proto_build_session {
-  char type;
-  short slen;
-  char *sid;
-};
+#define CFRP_PCMD_INVALID 0x01 // 无效的命令
+
+typedef struct cfrp_proto_command {
+  char cmd;
+  int flag;
+} cfrp_proto_command_t;
 
 #endif

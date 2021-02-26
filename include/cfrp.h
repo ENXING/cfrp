@@ -80,8 +80,12 @@ struct cfrp_payload {
  * 映射信息
  */
 struct cfrp_mapping {
-  char *addr;
-  cfrp_uint_t port;
+  // 监听地址
+  char *lisen_addr;
+  // 简单端口
+  cfrp_uint_t listen_port;
+  // 转发端口
+  cfrp_uint8_t forward_port;
   struct list_head list;
 };
 
@@ -95,12 +99,13 @@ struct cfrp_session {
 };
 
 struct sock_event {
+  int fd;
+  int type; // channel or sock
+  int events;
   union {
     struct cfrp_sock *sk;
     struct cfrp_channel *channel;
   } entry;
-  int type; // channel or sock
-  int events;
   struct list_head list;
   void *ptr;
 };
@@ -141,6 +146,7 @@ struct cfrp_lock {
 };
 
 struct cfrp_server {
+  cfrp_uint_t wait_session_num;      // 等待会话数量
   struct cfrp_sock sock_pair[2];     // 一对cfrp_sock 表一个服务端 一个客户端
   struct sock_event sock_accept;     // 接受连接事件
   struct cfrp_session wait_sessions; // 等待 session
@@ -166,7 +172,7 @@ struct cfrp {
   // channel event
   struct sock_event channel_event;
   // 会话信息
-  struct cfrp_session session;
+  struct cfrp_session sessions;
   // 全局共享锁
   struct cfrp_lock *lock;
   // 进程间通讯

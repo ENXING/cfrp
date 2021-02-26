@@ -7,6 +7,7 @@
 #include "lib.h"
 #include "logger.h"
 #include "nevent.h"
+#include "stream.h"
 
 void cfrp_start_worker_process(struct cfrp *frp, int num, cfrp_woker_proc_t proc, cfrp_complete_t cfrp_complete) {
   cfrp_worker_t *wk;
@@ -164,11 +165,24 @@ int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
 
   switch (msg.cmd) {
     case CFRP_CMD_OPEN_CHANNEL: {
+
       channel      = &msg.data.channel;
       channel->fd  = msg.fd;
       channel->cmd = CFRP_CMD_NUI;
-      cfrp_memcpy(&frp->channels[channel->slot], channel, sizeof(cfrp_channel_t));
-      log_debug("proc channel cfrp.channels[%d] -> %d", channel->slot, channel->fd);
+
+      if (frp->channels[channel->slot].pid == channel->pid) {
+
+        log_info("proc cahnnel close");
+        cfrp_channel_close(channel->fd);
+
+      } else {
+
+        set_noblocking(channel->fd);
+        cfrp_memcpy(&frp->channels[channel->slot], channel, sizeof(cfrp_channel_t));
+
+        log_debug("proc channel cfrp.channels[%d] -> %d", channel->slot, channel->fd);
+      }
+
     } break;
 
     case CFRP_CHANNEL_MASOCK:
@@ -178,11 +192,20 @@ int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
       server   = (cfrp_server_t *)frp->entry;
       sock     = &msg.data.sock;
       sock->fd = msg.fd;
-      if (msg.cmd == CFRP_CHANNEL_CLSOCK) {
 
+      sock_noblocking(sock);
+      stream_base(sock);
+
+      if (msg.cmd == CFRP_CHANNEL_CLSOCK) {
       } else {
-        cfrp_memcpy(cfrp_pair_last(server->sock_pair), sock, sizeof(cfrp_sock_t));
-        log_info("proc channel sock pair %s:%d#%d", sock->host, sock->port, sock->fd);
+        cfrp_sock_t *client_sock = cfrp_pair_last(server->sock_pair);
+        if (!cfrp_memiszero(client_sock, sizeof(cfrp_sock_t))) {
+          cfrp_channel_close(client_sock->fd);
+          cfrp_memzero(client_sock, sizeof(cfrp_sock_t));
+        } else {
+          cfrp_memcpy(client_sock, sock, sizeof(cfrp_sock_t));
+          log_info("proc channel sock pair %s:%d#%d", SOCK_ADDR(sock), sock->port, sock->fd);
+        }
       }
     } break;
 

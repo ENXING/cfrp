@@ -10,8 +10,8 @@ int main(int argc, char **argv) {
 
   log_level() = LOGGER_DEBUG;
   cfrp_mapping_t head;
-  cfrp_mapping_t mp  = {.addr = "127.0.0.1", .port = 8083};
-  cfrp_mapping_t mp2 = {.addr = "127.0.0.1", .port = 8084};
+  cfrp_mapping_t mp  = {.listen_port = 9000};
+  cfrp_mapping_t mp2 = {.listen_port = 9001};
   INIT_LIST_HEAD(&head.list);
   list_add(&mp.list, &head.list);
   list_add(&mp2.list, &head.list);

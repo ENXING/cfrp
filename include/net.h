@@ -7,7 +7,17 @@
 
 #define SOCK_LISTEN_NUM 10
 
+#define SOCK_IPV4 0x01 // ipv4
+#define SOCK_IPV6 0x02 // ipv6
+
+#define SOCK_LEN_IPV4 sizeof(char) * 16
+#define SOCK_LEN_IPV6 sizeof(char) * 40
+
 #define SOCK_ADDR_IN(port, host) {.sin_family = AF_INET, .sin_port = htons(port), .sin_addr = {.s_addr = inet_addr(host)}};
+
+#define SOCK_ADDR(sock) sock->atype == SOCK_IPV4 ? sock->addr.ipv4 : sock->addr.ipv6
+
+#define SOCK_BAD -1 // 坏的 sock
 
 struct stream_operating {
   int (*recv)(void *sk, void *buffer, size_t size);
@@ -23,8 +33,13 @@ struct cfrp_sock {
   int type;
   // 端口号
   int port;
+  // 地址类型
+  char atype;
   // 主机地址
-  char *host;
+  union {
+    char ipv4[SOCK_LEN_IPV4];
+    char ipv6[SOCK_LEN_IPV6];
+  } addr;
   // 是否锁定操作
   char op_lock;
   // 流操作指针

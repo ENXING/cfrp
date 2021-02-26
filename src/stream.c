@@ -6,12 +6,12 @@ typedef int (*__sock_stream_io__)(void *sk, void *buff, size_t size);
 typedef int (*__sock_stream_op__)(void *sk);
 
 static int sock_brecv(struct cfrp_sock *sk, void *buff, size_t size) {
-  log_debug("sock recv %ld", size);
+  log_info("sock recv %ld", size);
   return recv(sk->fd, buff, size, 0);
 }
 
 static int sock_bsend(struct cfrp_sock *sk, void *data, size_t size) {
-  log_debug("sock send %ld", size);
+  log_info("sock send %ld", size);
   return send(sk->fd, data, size, 0);
 }
 
@@ -20,7 +20,7 @@ static int sock_bflush(struct cfrp_sock *sk) {
 }
 
 static int sock_bclose(struct cfrp_sock *sk) {
-  log_debug("close sock: %s:%d#%d", sk->host, sk->port, sk->fd);
+  log_debug("close sock: %s:%d#%d", SOCK_ADDR(sk), sk->port, sk->fd);
   shutdown(sk->fd, SHUT_RDWR);
   close(sk->fd);
   cfrp_free(sk);
@@ -32,11 +32,11 @@ static int sock_bclose(struct cfrp_sock *sk) {
  */
 struct stream_operating *stream_base(cfrp_sock_t *sk) {
   __non_null__(sk, NULL);
-  static struct stream_operating op = {.send = (__sock_stream_io__)sock_bsend,
-                                       .recv = (__sock_stream_io__)sock_brecv,
+  static struct stream_operating op = {.send  = (__sock_stream_io__)sock_bsend,
+                                       .recv  = (__sock_stream_io__)sock_brecv,
                                        .flush = (__sock_stream_op__)sock_bflush,
                                        .close = (__sock_stream_op__)sock_bclose};
-  sk->op = &op;
+  sk->op                            = &op;
   return &op;
 }
 

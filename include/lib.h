@@ -59,5 +59,19 @@ extern char *cfrp_formattime(char *buffer, size_t buffer_size, char *format, str
 
 extern pid_t cfrp_getpid();
 
+/**
+ * 检查内存中所有值是否为 `\0`
+ */
+static inline int cfrp_memiszero(void *ptr, size_t size) {
+  __non_null__(ptr, 0);
+  char *chrs = (char *)ptr;
+  for (size_t i = 0; i < size && ptr; i++) {
+    if (chrs[i]) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
 typedef struct cfrp_time ftime;
 #endif

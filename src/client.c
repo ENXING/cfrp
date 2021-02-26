@@ -22,7 +22,7 @@ static int cfrp_client_auth(cfrp_sock_t *sk) {
 }
 
 static void cfrp_client_check_connect(cfrp_client_t *fc) {
-  cfrp_void_assert(!cshm_isnui(fc->csk, sizeof(cfrp_sock_t)));
+  cfrp_void_assert(!cfrp_memiszero(fc->csk, sizeof(cfrp_sock_t)));
   int try_cnn       = 0;
   cfrp_sock_t *conn = NULL;
   do {

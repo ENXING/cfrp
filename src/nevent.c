@@ -62,7 +62,7 @@ extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_event
       sev->events = CFRP_EVENT_IN;
     } else if (ev->events & EPOLLOUT) {
       sev->events = CFRP_EVENT_OUT;
-    } else if (ev->events & EPOLLERR) {
+    } else if (ev->events & EPOLLERR || ev->events & EPOLLHUP) {
       sev->events = CFRO_EVENT_ERR;
     }
 
@@ -79,7 +79,7 @@ int cfrp_epoll_add(struct cfrp_epoll *epoll, struct sock_event *event) {
 
   cfrp_sock_t *sk         = NULL;
   cfrp_channel_t *channel = NULL;
-  int fd                  = cfrp_epoll_get_fd(event);
+  int fd                  = -1;
 
   struct sock_event *sk_event = cfrp_malloc(sizeof(struct sock_event));
   struct epoll_event ev;
@@ -91,20 +91,22 @@ int cfrp_epoll_add(struct cfrp_epoll *epoll, struct sock_event *event) {
 
   if (event->type == CFRP_SOCK) {
     sk = event->entry.sk;
-    log_debug("listen for a sock event. [%d] %s:%d#%d", epoll->efd, sk->host, sk->port, sk->fd);
+    fd = event->entry.sk->fd;
+    log_debug("listen for a sock event. [%d] %s:%d#%d", epoll->efd, SOCK_ADDR(sk), sk->port, sk->fd);
   } else if (event->type == CFRP_CHANNEL) {
     channel = event->entry.channel;
+    fd      = event->entry.channel->fd;
     log_debug("listen for a channel event. [%d] -- %d", epoll->efd, channel->fd)
   } else {
     cfrp_free(sk_event);
     return C_ERROR;
   }
 
-  sk_event->ptr = event;
-
-  ev.events   = EPOLLET | EPOLLIN | EPOLLERR;
-  ev.data.fd  = fd;
-  ev.data.ptr = sk_event;
+  sk_event->ptr = &ev;
+  sk_event->fd  = fd;
+  ev.data.fd    = fd;
+  ev.data.ptr   = sk_event;
+  ev.events     = EPOLLET | EPOLLIN | EPOLLERR;
 
   list_add(&sk_event->list, &epoll->events.list);
 
@@ -116,12 +118,14 @@ int cfrp_epoll_reuse(struct cfrp_epoll *epoll, struct sock_event *event) {
 }
 
 int cfrp_epoll_del(struct cfrp_epoll *epoll, struct sock_event *event) {
-  int fd = cfrp_epoll_get_fd(event);
-  if (fd <= 0)
-    return C_ERROR;
+
+  int n = epoll_ctl(epoll->efd, EPOLL_CTL_DEL, event->fd, event->ptr);
+
   list_del(event->list.prev, event->list.next);
+
   cfrp_free(event);
-  return epoll_ctl(epoll->efd, EPOLL_CTL_DEL, fd, NULL);
+
+  return n;
 }
 
 int cfrp_epoll_close(struct cfrp_epoll *epoll) {
@@ -134,14 +138,15 @@ int cfrp_epoll_close(struct cfrp_epoll *epoll) {
 
 int cfrp_epoll_clear(struct cfrp_epoll *epoll) {
   __non_null__(epoll, C_ERROR);
+
   log_debug("clear event set");
+
   struct sock_event *event;
   int fd;
+
   list_foreach_entry(event, &epoll->events.list, list) {
-    if (cfrp_epoll_del(epoll, event) < 0) {
-      fd = cfrp_epoll_get_fd(event);
-      log_error("del sock event error ---[%d], msg: %s", fd, CFRP_SYS_ERROR);
-    }
+    cfrp_epoll_del(epoll, event);
   }
+
   return C_SUCCESS;
 }
