@@ -31,6 +31,21 @@
  */
 #define CFRP_CHANNEL_CLSOCK 6
 
+/**
+ * 关闭 session
+ */
+#define CFRP_CHANNEL_CLSN 7
+
+/**
+ * 打开 session
+ */
+#define CFRP_CHANNEL_OPSN 8
+
+/**
+ * 同步客户端 sock
+ */
+#define CFRP_CHANNEL_CSOCK 10
+
 extern int cfrp_channel_send(struct cfrp_channel *ch, struct cfrp_cmsg *msg);
 
 extern int cfrp_channel_recv(struct cfrp_channel *ch, struct cfrp_cmsg *msg);

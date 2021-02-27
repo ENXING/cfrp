@@ -193,3 +193,46 @@ extern int sock_port_reuse(struct cfrp_sock *sk, int *val) {
   __non_null__(sk, SOCK_BAD);
   return reuse_port(sk->fd, val);
 }
+
+extern int sock_forward(struct cfrp_sock *dest, struct cfrp_sock *src) {
+  char buffer[1024];
+
+  ssize_t total, rn, sn, err = 0, buf_size = sizeof(buffer);
+
+  total = 0;
+
+  LOOP {
+
+    cfrp_memzero(buffer, buf_size);
+
+    rn = sock_recv(dest, buffer, buf_size);
+
+    if (rn == 0) {
+      err = 1;
+      break;
+    } else if (rn == -1) {
+      if (errno == EAGAIN) {
+        break;
+      } else {
+        err = 1;
+        break;
+      }
+    }
+
+    sn = sock_send(src, buffer, rn);
+
+    if (sn <= 0 || sn != buf_size) {
+      err = 1;
+      break;
+    }
+
+    total += rn;
+  }
+
+  if (err) {
+    log_error("forward error: %s", CFRP_SYS_ERROR);
+    return C_ERROR;
+  }
+
+  return total;
+}

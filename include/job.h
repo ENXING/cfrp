@@ -27,6 +27,8 @@ extern int cfrp_channel_open(int *arr);
  */
 extern int cfrp_sync_woker_channel(struct cfrp *frp, int last, struct cfrp_channel *channel);
 
+extern void cfrp_server_sync_sock(struct cfrp *frp, struct cfrp_sock *sock, int cmd);
+
 extern int cfrp_channel_event_add(struct cfrp *frp, struct cfrp_channel *ch);
 
 extern int cfrp_channel_event_del(struct cfrp *frp, struct cfrp_channel *ch);

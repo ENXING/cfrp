@@ -3,7 +3,7 @@
 #include "logger.h"
 
 int main(int argc, char **argv) {
-  log_level() = LOGGER_INFO;
+  log_level() = LOGGER_DEBUG;
   if (argc < 3) {
     log_error("parameter is not enough. %s [host] [port]", argv[0]);
     return 0;

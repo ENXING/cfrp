@@ -135,6 +135,27 @@ extern int cfrp_channel_event_add(struct cfrp *frp, struct cfrp_channel *ch) {
   return cfrp_epoll_add(frp->epoll_private, ev);
 }
 
+void cfrp_server_sync_sock(struct cfrp *frp, struct cfrp_sock *sock, int cmd) {
+  cfrp_channel_t *ch;
+  cfrp_cmsg_t msg;
+
+  msg.fd  = cmd == CFRP_CHANNEL_CLSN ? -1 : sock->fd;
+  msg.cmd = cmd;
+
+  memcpy(&msg.data.sock, sock, sizeof(cfrp_sock_t));
+
+  for (int slot = 0; slot < frp->worker_num; slot++) {
+    if (frp->channels[slot].pid == cfrp_getpid())
+      continue;
+
+    ch = &frp->channels[slot];
+
+    if (cfrp_channel_send(ch, &msg) <= 0) {
+      log_error("sync sock error msg: %s", CFRP_SYS_ERROR);
+    }
+  }
+}
+
 extern int cfrp_channel_event_del(struct cfrp *frp, struct cfrp_channel *ch) {
   cfrp_list_t *head = &frp->channel_event.list;
   cfrp_event_t *entry;
@@ -157,6 +178,8 @@ int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
   cfrp_channel_t *channel;
   cfrp_sock_t *sock;
   cfrp_cmsg_t msg;
+  cfrp_event_t *event;
+  cfrp_session_t *session;
 
   if (cfrp_channel_recv(ch, &msg) <= 0) {
     log_debug("open channel failure. msg: %s", CFRP_SYS_ERROR);
@@ -188,24 +211,46 @@ int cfrp_channel_event_handler(struct cfrp *frp, struct cfrp_channel *ch) {
     case CFRP_CHANNEL_MASOCK:
     case CFRP_CANNEL_MPSOCK:
     case CFRP_CHANNEL_CPSOCK:
-    case CFRP_CHANNEL_CLSOCK: {
+    case CFRP_CHANNEL_CLSN:
+    case CFRP_CHANNEL_OPSN: {
       server   = (cfrp_server_t *)frp->entry;
       sock     = &msg.data.sock;
       sock->fd = msg.fd;
 
+      if (msg.cmd == CFRP_CHANNEL_CLSN) {
+        // clos sock
+        log_debug("close session");
+        list_foreach_entry(session, &server->wait_sessions.list, list) {
+          if (session->sk_dest->port == sock->port) {
+            log_info("del session");
+            list_del(&session->list, &server->wait_sessions.list);
+            break;
+          }
+        };
+        session = NULL;
+        break;
+      }
+
       sock_noblocking(sock);
       stream_base(sock);
 
-      if (msg.cmd == CFRP_CHANNEL_CLSOCK) {
+      if (msg.cmd == CFRP_CHANNEL_OPSN) {
+        log_debug("open session");
+        session           = cfrp_malloc(sizeof(cfrp_session_t));
+        cfrp_sock_t *dest = cfrp_malloc(sizeof(cfrp_sock_t));
+
+        cfrp_memcpy(dest, sock, sizeof(cfrp_sock_t));
+
+        session->sk_dest = dest;
+        session->sk_src  = NULL;
+
+        list_add(&session->list, &server->wait_sessions.list);
+
+        session = NULL;
+
       } else {
-        cfrp_sock_t *client_sock = cfrp_pair_last(server->sock_pair);
-        if (!cfrp_memiszero(client_sock, sizeof(cfrp_sock_t))) {
-          cfrp_channel_close(client_sock->fd);
-          cfrp_memzero(client_sock, sizeof(cfrp_sock_t));
-        } else {
-          cfrp_memcpy(client_sock, sock, sizeof(cfrp_sock_t));
-          log_info("proc channel sock pair %s:%d#%d", SOCK_ADDR(sock), sock->port, sock->fd);
-        }
+        // 同步 sock
+        frp->major_sync(frp, sock);
       }
     } break;
 

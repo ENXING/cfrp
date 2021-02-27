@@ -15,26 +15,28 @@ static size_t cfrp_shm_size() {
   return lock_size;
 }
 
-static void cfrp_server_sync_sock(struct cfrp *frp, struct cfrp_sock *sock, int cmd) {
-  cfrp_channel_t *ch;
-  cfrp_cmsg_t msg;
-
-  msg.fd  = cmd == CFRP_CHANNEL_CPSOCK ? -1 : sock->fd;
-  msg.cmd = cmd;
-
-  memcpy(&msg.data.sock, sock, sizeof(cfrp_sock_t));
-
-  for (int slot = 0; slot < frp->worker_num; slot++) {
-    if (frp->channels[slot].pid == cfrp_getpid())
-      continue;
-
-    ch = &frp->channels[slot];
-
-    if (cfrp_channel_send(ch, &msg) <= 0) {
-      log_error("sync sock error msg: %s", CFRP_SYS_ERROR);
-    }
+static void cfrp_server_major_sync(struct cfrp *frp, struct cfrp_sock *sock) {
+  cfrp_server_t *server    = frp->entry;
+  cfrp_sock_t *client_sock = cfrp_pair_last(server->sock_pair);
+  if (!cfrp_memiszero(client_sock, sizeof(cfrp_sock_t))) {
+    cfrp_channel_close(client_sock->fd);
+    cfrp_memzero(client_sock, sizeof(cfrp_sock_t));
+  } else {
+    cfrp_memcpy(client_sock, sock, sizeof(cfrp_sock_t));
+    log_info("proc channel sock pair %s:%d#%d", SOCK_ADDR(sock), sock->port, sock->fd);
   }
 }
+
+static void cfrp_clear_session(struct cfrp_session *sessions) {
+  log_info("clear sessions");
+  cfrp_session_t *session;
+  list_foreach_entry(session, &sessions->list, list) {
+    sock_close(session->sk_dest);
+    sock_close(session->sk_src);
+    list_del(session->list.prev, session->list.next);
+    cfrp_free(session); // 这里可能会出现错误(保留)
+  }
+};
 
 static int cfrp_release_sock_event(struct sock_event *event_head) {
   __non_null__(event_head, C_ERROR);
@@ -89,15 +91,18 @@ static void cfrp_server_build_mapping_session(struct cfrp *frp, cfrp_sock_t *sk)
 
   cfrp_event_t event[2];
 
-  if (server->wait_session_num == 0) {
+  log_info(".....");
+
+  if (server->wait_session_num == -1) {
     log_debug("no session close connect");
     sock_close(sk);
   } else {
     // 认证是否是建立映射
     // 构建会话
     // 构建会话前通知其他进程关闭该会话
+    log_info("forward");
 
-    cfrp_server_sync_sock(frp, sk, CFRP_CHANNEL_CPSOCK);
+    // cfrp_server_sync_sock(frp, sk, CFRP_CHANNEL_CLSN);
 
     session         = list_entry(server->wait_sessions.list.next, cfrp_session_t, list);
     session->sk_src = sk;
@@ -105,18 +110,16 @@ static void cfrp_server_build_mapping_session(struct cfrp *frp, cfrp_sock_t *sk)
     event[0].type     = CFRP_SOCK;
     event[0].ptr      = session;
     event[0].entry.sk = session->sk_src;
-    event[0].fd       = session->sk_src->fd;
 
     event[1].type     = CFRP_SOCK;
     event[1].ptr      = session;
-    event[1].entry.sk = session->sk_desc;
-    event[1].fd       = session->sk_desc->fd;
+    event[1].entry.sk = session->sk_dest;
 
     cfrp_epoll_add(frp->epoll_private, &event[0]);
     cfrp_epoll_add(frp->epoll_private, &event[1]);
 
-    list_del(session->list.prev, session->list.prev);
-    list_add(&session->list, &frp->sessions.list);
+    // list_del(session->list.prev, session->list.prev);
+    // list_add(&session->list, &frp->sessions.list);
     server->wait_session_num--;
   }
 }
@@ -124,22 +127,30 @@ static void cfrp_server_build_mapping_session(struct cfrp *frp, cfrp_sock_t *sk)
 /**
  * 通知客户端建立一个连接
  */
-static void cfrp_server_build_mapping_wait_session(struct cfrp *frp, cfrp_sock_t *sk) {
-  cfrp_proto_command_t command = {.cmd = CFRP_PTMPC};
+static void cfrp_server_build_mapping_wait_session(struct cfrp *frp, cfrp_sock_t *sk, cfrp_sock_t *src_sk) {
+  cfrp_proto_command_t command = {.cmd = CFRP_PTMPC, .port = src_sk->port};
   cfrp_server_t *server        = frp->entry;
   cfrp_sock_t *client_sk       = cfrp_pair_last(server->sock_pair);
   cfrp_session_t *session      = cfrp_malloc(sizeof(cfrp_server_t));
 
-  session->sk_desc = sk;
+  session->sk_dest = sk;
   session->sk_src  = NULL;
 
-  list_add(&session->list, &server->wait_sessions.list);
+  int n = 1;
 
   // 通知客户端需要建立新的连接
-  if (sock_send(client_sk, &command, sizeof(command)) < 0) {
+  n = sock_send(client_sk, &command, sizeof(command));
+
+  if (n <= 0) {
     log_info("build mapping wait session error");
+    cfrp_free(session);
     sock_close(sk);
   } else {
+
+    cfrp_server_sync_sock(frp, sk, CFRP_CHANNEL_OPSN);
+
+    list_add(&session->list, &server->wait_sessions.list);
+
     server->wait_session_num++;
   }
 }
@@ -149,7 +160,6 @@ static void cfrp_server_build_mapping_wait_session(struct cfrp *frp, cfrp_sock_t
  */
 static void cfrp_server_accept_handler(struct cfrp *frp, cfrp_sock_t *sk) {
   cfrp_sock_t *conn_sk = sock_accept(sk);
-
   cfrp_void_assert(!conn_sk);
 
   cfrp_server_t *fs      = (cfrp_server_t *)frp->entry;
@@ -175,7 +185,7 @@ static void cfrp_server_accept_handler(struct cfrp *frp, cfrp_sock_t *sk) {
     // 如果是访问的映射端口, 那么判断看是否已经与客户建立连接,
     // 如果没有将会关闭连接
     log_debug("build the mapping request");
-    cfrp_server_build_mapping_wait_session(frp, conn_sk);
+    cfrp_server_build_mapping_wait_session(frp, conn_sk, sk);
   } else {
     // 还没有客户端建立通讯关闭该连接
     log_info("cfrp client not ready. close remote: %s:%d#%d", SOCK_ADDR(conn_sk), conn_sk->port, conn_sk->fd);
@@ -191,13 +201,14 @@ static void cfrp_server_client_handler(struct cfrp *frp) {
 
   log_info("handler client message %s:%d#%d", SOCK_ADDR(client_sock), client_sock->port, client_sock->fd);
 
-  int n            = 0;
   cfrp_size_t size = sizeof(command);
-  n                = recv(client_sock->fd, &command, size, 0);
+  int n            = sock_recv(client_sock, &command, size);
 
   if (n == 0) {
     // 连接断开
     log_info("sock disconnect %s:%d#%d", SOCK_ADDR(client_sock), client_sock->port, client_sock->fd);
+
+    cfrp_clear_session(&server->wait_sessions);
     cfrp_channel_close(client_sock->fd);
     cfrp_memzero(client_sock, sizeof(cfrp_sock_t));
   }
@@ -257,24 +268,16 @@ static void cfrp_server_session_handler(struct cfrp *frp, struct sock_event *eve
 
   dest = event->entry.sk;
 
-  src = session->sk_desc == dest ? session->sk_src : session->sk_desc;
+  src = session->sk_dest == dest ? session->sk_src : session->sk_dest;
 
   // 开始转发数据
-  while (1) {
-    n = sock_recv(dest, buffer, sizeof(buffer));
-    if (n == 0) {
-      log_info("close sock");
-      break;
-    }
 
-    if (n > 0) {
-      s = sock_send(src, buffer, n);
+  n = sock_forward(dest, src);
 
-      if (n != s) {
-        log_info("send error");
-        break;
-      }
-    }
+  if (!n || n < 0) {
+    cfrp_epoll_del(frp->epoll_private, event);
+    sock_close(dest);
+    sock_close(src);
   }
 }
 
@@ -341,6 +344,10 @@ static void cfrp_display_info(struct cfrp *frp) {
 }
 
 static int cfrp_server_start(struct cfrp *frp) {
+  pid_t wpid;
+  int val = 0;
+  cfrp_worker_t *wk;
+
   log_info("start the server");
 
   init_cfrp_server(frp);
@@ -348,6 +355,13 @@ static int cfrp_server_start(struct cfrp *frp) {
   cfrp_start_worker_process(frp, cfrp_cpu, cfrp_server_process_handler, cfrp_display_info);
   log_info("the server started successfully");
   LOOP {
+    // list_foreach_entry(wk, &frp->workers.list, list) {
+    //   wpid = cfrp_waitpid(wk->pid, &val);
+    //   if (wpid != 0) {
+    //     list_del(wk->list.prev, wk->list.next);
+    //     cfrp_unlock(frp->lock);
+    //   }
+    // }
     sleep(1);
   }
 }
@@ -484,6 +498,7 @@ cfrps_t *make_cfrps(char *bind_addr, cfrp_uint_t port, struct cfrp_mapping *mapp
   frp->entry         = server;
   frp->epoll_share   = epoll_share;
   frp->epoll_private = epoll_private;
+  frp->major_sync    = cfrp_server_major_sync;
   frp->worker        = NULL;
   frp->channel       = NULL;
   frps->frp          = frp;

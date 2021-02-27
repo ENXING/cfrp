@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "lib.h"
@@ -102,4 +103,8 @@ char *cfrp_strcpy(char *dest, char *src) {
 
 pid_t cfrp_getpid() {
   return getpid();
+}
+
+extern pid_t cfrp_waitpid(pid_t pid, int *val) {
+  return waitpid(pid, val, WNOHANG);
 }

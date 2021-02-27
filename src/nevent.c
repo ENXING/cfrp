@@ -70,7 +70,7 @@ extern int cfrp_epoll_wait(struct cfrp_epoll *epoll, struct sock_event *sk_event
   }
 
   if (num > 0)
-    log_debug("waiting sock number of events: %d", num);
+    log_info("waiting sock number of events: %d", num);
   return num;
 }
 
@@ -102,11 +102,10 @@ int cfrp_epoll_add(struct cfrp_epoll *epoll, struct sock_event *event) {
     return C_ERROR;
   }
 
-  sk_event->ptr = &ev;
-  sk_event->fd  = fd;
-  ev.data.fd    = fd;
-  ev.data.ptr   = sk_event;
-  ev.events     = EPOLLET | EPOLLIN | EPOLLERR;
+  sk_event->fd = fd;
+  ev.data.fd   = fd;
+  ev.data.ptr  = sk_event;
+  ev.events    = EPOLLET | EPOLLIN | EPOLLERR;
 
   list_add(&sk_event->list, &epoll->events.list);
 
@@ -139,7 +138,7 @@ int cfrp_epoll_close(struct cfrp_epoll *epoll) {
 int cfrp_epoll_clear(struct cfrp_epoll *epoll) {
   __non_null__(epoll, C_ERROR);
 
-  log_debug("clear event set");
+  log_info("clear event set");
 
   struct sock_event *event;
   int fd;

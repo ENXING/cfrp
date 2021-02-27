@@ -15,7 +15,7 @@
 
 #define SOCK_ADDR_IN(port, host) {.sin_family = AF_INET, .sin_port = htons(port), .sin_addr = {.s_addr = inet_addr(host)}};
 
-#define SOCK_ADDR(sock) sock->atype == SOCK_IPV4 ? sock->addr.ipv4 : sock->addr.ipv6
+#define SOCK_ADDR(sock) (sock)->atype == SOCK_IPV4 ? (sock)->addr.ipv4 : (sock)->addr.ipv6
 
 #define SOCK_BAD -1 // 坏的 sock
 
@@ -88,6 +88,8 @@ extern int sock_send_timeout(struct cfrp_sock *sk, int timeout);
  * 端口复用
  */
 extern int sock_port_reuse(struct cfrp_sock *sk, int *val);
+
+extern int sock_forward(struct cfrp_sock *dest, struct cfrp_sock *src);
 
 typedef struct cfrp_sock cfrp_sock_t;
 

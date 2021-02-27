@@ -59,6 +59,8 @@ extern char *cfrp_formattime(char *buffer, size_t buffer_size, char *format, str
 
 extern pid_t cfrp_getpid();
 
+extern pid_t cfrp_waitpid(pid_t pid, int *val);
+
 /**
  * 检查内存中所有值是否为 `\0`
  */

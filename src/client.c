@@ -1,15 +1,91 @@
 #include "cfrp.h"
+#include "channel.h"
 #include "cshm.h"
 #include "job.h"
 #include "lib.h"
 #include "logger.h"
 #include "mutex.h"
+#include "net.h"
 #include "nevent.h"
+#include "protocol.h"
 
 static size_t cfrp_shm_size() {
   static const size_t lock_size = sizeof(struct cfrp_lock);
-  static const size_t sock_size = sizeof(cfrp_sock_t);
-  return lock_size + sock_size;
+  return lock_size;
+}
+
+static int cfrp_client_has_connect(struct cfrp *frp) {
+  cfrp_client_t *client = frp->entry;
+
+  return !cfrp_memiszero(&client->sock, sizeof(cfrp_sock_t));
+}
+
+static void cfrp_client_major_sync(struct cfrp *frp, struct cfrp_sock *sock) {
+  cfrp_client_t *client = frp->entry;
+
+  int sock_size = sizeof(cfrp_sock_t);
+
+  if (cfrp_client_has_connect(frp)) {
+    sock_close(&client->sock);
+    cfrp_memzero(&client->sock, sock_size);
+  } else {
+    cfrp_memcpy(&client->sock, sock, sock_size);
+  }
+}
+
+static void cfrp_command_handler(struct cfrp *frp, struct cfrp_sock *sock) {
+  cfrp_client_t *client = frp->entry;
+  cfrp_proto_command_t command;
+  cfrp_session_t *session;
+  cfrp_sock_t *dest, *src;
+  cfrp_event_t events[2];
+
+  log_debug("handler command");
+
+  int n = sock_recv(sock, &command, sizeof(command));
+
+  log_debug("....");
+
+  if (n == 0) {
+    // sock_close(sock);
+  } else {
+
+    log_debug("command cmd: %d, port: %d", command.cmd, command.port);
+
+    if (command.cmd == CFRP_PTMPC) {
+      log_debug("mapping");
+
+      int port = command.port ? command.port : 22;
+
+      dest = make_tcp_connect(22, "127.0.0.1");
+      src  = make_tcp_connect(client->port, SOCK_ADDR(&client->sock));
+
+      if (!dest || !src) {
+        log_debug("connect error");
+      }
+
+      session = cfrp_malloc(sizeof(cfrp_session_t));
+
+      session->sk_dest = dest;
+      session->sk_src  = src;
+
+      events[0].type     = CFRP_SOCK;
+      events[0].entry.sk = dest;
+      events[0].ptr      = session;
+
+      events[1].type     = CFRP_SOCK;
+      events[1].entry.sk = src;
+      events[1].ptr      = session;
+
+      sock_noblocking(dest);
+      sock_noblocking(src);
+
+      cfrp_epoll_add(frp->epoll_private, &events[0]);
+      cfrp_epoll_add(frp->epoll_private, &events[1]);
+
+      // list_add(&session->list, &frp->sessions.list);
+    }
+  }
 }
 
 static int cfrp_client_auth(cfrp_sock_t *sk) {
@@ -21,32 +97,77 @@ static int cfrp_client_auth(cfrp_sock_t *sk) {
   return C_SUCCESS;
 }
 
-static void cfrp_client_check_connect(cfrp_client_t *fc) {
-  cfrp_void_assert(!cfrp_memiszero(fc->csk, sizeof(cfrp_sock_t)));
+static void cfrp_client_check_connect(struct cfrp *frp) {
+  if (cfrp_client_has_connect(frp))
+    return;
+  cfrp_client_t *client = frp->entry;
+
   int try_cnn       = 0;
+  char *addr        = SOCK_ADDR(client);
   cfrp_sock_t *conn = NULL;
+
   do {
+
     if (try_cnn) {
-      log_info("retry the connection: %s:%d", fc->host, fc->port);
+      log_info("retry the connection: %s:%d", addr, client->port);
       sleep(5);
     }
-    conn = make_tcp_connect(fc->port, fc->host);
+
+    conn = make_tcp_connect(client->port, addr);
     try_cnn++;
+
   } while (!conn);
+
   if (cfrp_client_auth(conn)) {
-    log_info("connect to server: %s:%d", fc->host, fc->port);
-    cfrp_memcpy(fc->csk, conn, sizeof(cfrp_sock_t));
+
+    log_info("connect to server: %s:%d", addr, client->port);
+    cfrp_memcpy(&client->sock, conn, sizeof(cfrp_sock_t));
+
+    sock_noblocking(conn);
+    cfrp_server_sync_sock(frp, conn, CFRP_CHANNEL_MASOCK);
+    cfrp_free(conn);
   } else {
     sock_close(conn);
   }
 }
 
-static void cfrp_client_main_connect_rw(struct cfrp *frp) {
-  log_debug("wait server message");
-  cfrp_client_t *fc = (cfrp_client_t *)frp->entry;
-  cfrp_client_check_connect(fc);
-  sleep(5);
+static void cfrp_client_main_connect_read_and_write(struct cfrp *frp) {
+  cfrp_client_check_connect(frp);
+
+  int n;
+  cfrp_event_t events[10], event, *ev;
+  cfrp_client_t *client = frp->entry;
+  cfrp_sock_t *sock     = &client->sock;
+
+  event.type     = CFRP_SOCK;
+  event.entry.sk = sock;
+  event.ptr      = sock;
+
+  cfrp_epoll_add(frp->epoll_share, &event);
+
+  n = cfrp_epoll_wait(frp->epoll_share, events, 10, 1);
+
+  list_foreach_entry(ev, &events->list, list) {
+    if (ev->events & CFRP_EVENT_IN) {
+      if (ev->type == CFRP_SOCK) {
+        cfrp_command_handler(frp, ev->entry.sk);
+      }
+    }
+  }
+  cfrp_epoll_clear(frp->epoll_share);
 };
+
+static void cfrp_client_sock_event_handler(struct cfrp *frp, struct sock_event *event) {
+  cfrp_sock_t *dest, *src;
+
+  cfrp_session_t *session = event->ptr;
+
+  dest = event->entry.sk;
+
+  src = session->sk_dest == dest ? session->sk_src : session->sk_dest;
+
+  sock_forward(dest, src);
+}
 
 static void cfrp_client_read_and_wirte(struct cfrp *frp) {
   cfrp_event_t events[10], *event;
@@ -59,7 +180,8 @@ static void cfrp_client_read_and_wirte(struct cfrp *frp) {
     if (event->type == CFRP_CHANNEL) {
       cfrp_channel_event_handler(frp, event->entry.channel);
     } else {
-      log_debug("sock event");
+      log_info("sock event");
+      cfrp_client_sock_event_handler(frp, event);
     }
   }
 }
@@ -71,7 +193,7 @@ static void cfrp_display_info(struct cfrp *frp) {
 static void cfrp_client_process_handler(struct cfrp *frp) {
   log_info("start loop sock events");
   LOOP {
-    cfrp_mutex(frp, cfrp_client_main_connect_rw);
+    cfrp_mutex(frp, cfrp_client_main_connect_read_and_write);
     cfrp_client_read_and_wirte(frp);
   }
 }
@@ -110,19 +232,21 @@ cfrpc_t *make_cfrpc(char *client_addr, cfrp_uint_t port, struct cfrp_mapping *ma
   cfrp_client_t *client       = (cfrp_client_t *)cfrp_malloc(sizeof(cfrp_client_t));
   cfrp_shm_t *shm             = make_cshm(cfrp_shm_size());
   size_t host_len             = sizeof(char) * cfrp_strlen(client_addr);
-  client->host                = cfrp_malloc(host_len);
-  client->port                = port;
-  client->csk                 = cshm_alloc(shm, sizeof(cfrp_sock_t));
 
-  cfrp_strcpy(client->host, client_addr);
-  INIT_LIST_HEAD(&client->event_rw.list);
+  client->atype = SOCK_IPV4;
+  client->port  = port;
 
+  cfrp_strcpy(client->addr.ipv4, client_addr);
+  cfrp_memzero(&client->sock, sizeof(cfrp_sock_t));
+
+  frp->name          = "client";
   frp->ctx           = frpc;
   frp->entry         = client;
   frp->lock          = cshm_alloc(shm, sizeof(cfrp_lock_t));
   frp->shm           = shm;
   frp->epoll_private = private_epoll;
   frp->epoll_share   = share_epoll;
+  frp->major_sync    = cfrp_client_major_sync;
   frpc->frp          = frp;
   frpc->op           = &client_operating;
 

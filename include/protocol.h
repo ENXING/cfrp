@@ -12,7 +12,7 @@
 
 typedef struct cfrp_proto_command {
   char cmd;
-  int flag;
+  int port;
 } cfrp_proto_command_t;
 
 #endif

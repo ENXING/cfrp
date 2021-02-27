@@ -7,12 +7,14 @@ typedef int (*__sock_stream_op__)(void *sk);
 
 static int sock_brecv(struct cfrp_sock *sk, void *buff, size_t size) {
   log_info("sock recv %ld", size);
-  return recv(sk->fd, buff, size, 0);
+  return recv(sk->fd, buff, size, MSG_NOSIGNAL);
 }
 
 static int sock_bsend(struct cfrp_sock *sk, void *data, size_t size) {
-  log_info("sock send %ld", size);
-  return send(sk->fd, data, size, 0);
+
+  int n = send(sk->fd, data, size, MSG_NOSIGNAL);
+
+  return n;
 }
 
 static int sock_bflush(struct cfrp_sock *sk) {

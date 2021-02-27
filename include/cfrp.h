@@ -93,7 +93,7 @@ struct cfrp_mapping {
  * 会话信息
  */
 struct cfrp_session {
-  struct cfrp_sock *sk_desc;
+  struct cfrp_sock *sk_dest;
   struct cfrp_sock *sk_src;
   struct list_head list;
 };
@@ -154,10 +154,13 @@ struct cfrp_server {
 };
 
 struct cfrp_client {
-  char *host;                 // 服务端主机地址
-  int port;                   // 服务端端口
-  struct cfrp_sock *csk;      // 客户端通讯的sock,
-  struct sock_event event_rw; // 读写事件
+  int port;   // 服务端端口
+  char atype; // 地址类型
+  union {
+    char ipv4[16];
+    char ipv6[40];
+  } addr;                // 服务端主机地址
+  struct cfrp_sock sock; // 客户端通讯的sock,
 };
 
 struct cfrp {
@@ -187,6 +190,8 @@ struct cfrp {
   struct cfrp_channel *channel;
   // 共享内存
   struct cfrp_shm *shm;
+  // 同步主要服务
+  void (*major_sync)(struct cfrp *frp, struct cfrp_sock *sock);
   // 服务端或客户端实体
   void *entry;
   // 上下文
